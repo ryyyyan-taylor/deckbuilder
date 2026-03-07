@@ -1,0 +1,222 @@
+import { useState } from 'react'
+import { supabase } from '../lib/supabase'
+import { useAuth } from './useAuth'
+
+export interface Card {
+  id: string
+  scryfall_id: string
+  name: string
+  mana_cost: string | null
+  cmc: number | null
+  type_line: string | null
+  colors: string[]
+  color_identity: string[]
+  set_code: string | null
+  image_uris: { small: string; normal: string; large: string; png: string } | null
+}
+
+export interface DeckCard {
+  id: string
+  deck_id: string
+  card_id: string
+  section: string
+  quantity: number
+  card?: Card
+}
+
+export interface Deck {
+  id: string
+  user_id: string
+  name: string
+  format: string | null
+  description: string | null
+  is_public: boolean
+  created_at: string
+  updated_at: string
+}
+
+export interface DeckInput {
+  name: string
+  format: string
+  description: string
+  is_public: boolean
+}
+
+export function useDeck() {
+  const { user } = useAuth()
+  const [decks, setDecks] = useState<Deck[]>([])
+  const [loading, setLoading] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+
+  const fetchDecks = async () => {
+    setLoading(true)
+    setError(null)
+    const { data, error } = await supabase
+      .from('decks')
+      .select('*')
+      .order('updated_at', { ascending: false })
+    setLoading(false)
+    if (error) {
+      setError(error.message)
+      return []
+    }
+    setDecks(data as Deck[])
+    return data as Deck[]
+  }
+
+  const fetchDeck = async (id: string) => {
+    setLoading(true)
+    setError(null)
+    const { data, error } = await supabase
+      .from('decks')
+      .select('*')
+      .eq('id', id)
+      .single()
+    setLoading(false)
+    if (error) {
+      setError(error.message)
+      return null
+    }
+    return data as Deck
+  }
+
+  const createDeck = async (input: DeckInput) => {
+    setError(null)
+    const { data, error } = await supabase
+      .from('decks')
+      .insert({ ...input, user_id: user!.id })
+      .select()
+      .single()
+    if (error) {
+      setError(error.message)
+      return null
+    }
+    return data as Deck
+  }
+
+  const updateDeck = async (id: string, fields: Partial<DeckInput>) => {
+    setError(null)
+    const { data, error } = await supabase
+      .from('decks')
+      .update({ ...fields, updated_at: new Date().toISOString() })
+      .eq('id', id)
+      .select()
+      .single()
+    if (error) {
+      setError(error.message)
+      return null
+    }
+    return data as Deck
+  }
+
+  const deleteDeck = async (id: string) => {
+    setError(null)
+    const { error } = await supabase
+      .from('decks')
+      .delete()
+      .eq('id', id)
+    if (error) {
+      setError(error.message)
+      return false
+    }
+    setDecks((prev) => prev.filter((d) => d.id !== id))
+    return true
+  }
+
+  const addCardToDeck = async (deckId: string, cardId: string, section: string) => {
+    setError(null)
+    // Check if card already exists in this section
+    const { data: existing } = await supabase
+      .from('deck_cards')
+      .select('id, quantity')
+      .eq('deck_id', deckId)
+      .eq('card_id', cardId)
+      .eq('section', section)
+      .maybeSingle()
+
+    if (existing) {
+      const { error } = await supabase
+        .from('deck_cards')
+        .update({ quantity: existing.quantity + 1 })
+        .eq('id', existing.id)
+      if (error) {
+        setError(error.message)
+        return false
+      }
+    } else {
+      const { error } = await supabase
+        .from('deck_cards')
+        .insert({ deck_id: deckId, card_id: cardId, section })
+      if (error) {
+        setError(error.message)
+        return false
+      }
+    }
+    return true
+  }
+
+  const updateDeckCardSection = async (deckCardId: string, newSection: string) => {
+    setError(null)
+    const { error } = await supabase
+      .from('deck_cards')
+      .update({ section: newSection })
+      .eq('id', deckCardId)
+    if (error) {
+      setError(error.message)
+      return false
+    }
+    return true
+  }
+
+  const updateDeckCardQuantity = async (deckCardId: string, quantity: number) => {
+    setError(null)
+    if (quantity <= 0) {
+      return removeDeckCard(deckCardId)
+    }
+    const { error } = await supabase
+      .from('deck_cards')
+      .update({ quantity })
+      .eq('id', deckCardId)
+    if (error) {
+      setError(error.message)
+      return false
+    }
+    return true
+  }
+
+  const removeDeckCard = async (deckCardId: string) => {
+    setError(null)
+    const { error } = await supabase
+      .from('deck_cards')
+      .delete()
+      .eq('id', deckCardId)
+    if (error) {
+      setError(error.message)
+      return false
+    }
+    return true
+  }
+
+  const fetchDeckCards = async (deckId: string) => {
+    setError(null)
+    const { data, error } = await supabase
+      .from('deck_cards')
+      .select('*, card:cards(*)')
+      .eq('deck_id', deckId)
+    if (error) {
+      setError(error.message)
+      return []
+    }
+    return (data ?? []).map((dc: Record<string, unknown>) => ({
+      ...dc,
+      card: dc.card as Card,
+    })) as DeckCard[]
+  }
+
+  return {
+    decks, loading, error,
+    fetchDecks, fetchDeck, createDeck, updateDeck, deleteDeck,
+    addCardToDeck, fetchDeckCards,
+    updateDeckCardSection, updateDeckCardQuantity, removeDeckCard,
+  }
+}

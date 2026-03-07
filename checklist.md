@@ -30,36 +30,36 @@ Minimum viable product: a user can sign up, create a deck, search for cards, add
 
 ## 4. Supabase Client & Auth
 
-- [ ] Initialize Supabase client (`src/lib/supabase.ts`)
-- [ ] Build signup page
-- [ ] Build login page
-- [ ] Add session context / auth provider (`useAuth` hook)
-- [ ] Add protected route wrapper (redirect unauthenticated users)
-- [ ] Add logout functionality
+- [x] Initialize Supabase client (`src/lib/supabase.ts`)
+- [x] Build signup page
+- [x] Build login page
+- [x] Add session context / auth provider (`useAuth` hook)
+- [x] Add protected route wrapper (redirect unauthenticated users)
+- [x] Add logout functionality
 
 ## 5. Deck CRUD
 
-- [ ] Create deck form (name, format, description, public/private)
-- [ ] List user's decks on a dashboard page
-- [ ] Delete deck
-- [ ] Edit deck metadata (name, format, description, visibility)
+- [x] Create deck form (name, format, description, public/private)
+- [x] List user's decks on a dashboard page
+- [x] Delete deck
+- [x] Edit deck metadata (name, format, description, visibility)
 
 ## 6. Card Search
 
-- [ ] Search bar component hitting `/api/cards/search`
-- [ ] Display search results as a list
-- [ ] Card image preview on hover (Scryfall CDN)
-- [ ] Click result to add card to the active deck section
+- [x] Search bar component hitting `/api/cards/search`
+- [x] Display search results as a list
+- [x] Card image preview on hover (Scryfall CDN)
+- [x] Click result to add card to the active deck section
 
 ## 7. Deck Page & Drag-and-Drop
 
-- [ ] Deck page layout with sections (Commander, Mainboard, Sideboard, Maybeboard)
-- [ ] Show/hide sections based on format
-- [ ] Display cards in each section with quantity
-- [ ] Card count totals in section headers
-- [ ] dnd-kit: make cards draggable between sections
-- [ ] On drop, update `section` field in `deck_cards` via Supabase
-- [ ] Remove card / adjust quantity controls
+- [x] Deck page layout with sections (Commander, Mainboard, Sideboard, Maybeboard)
+- [x] Show/hide sections based on format
+- [x] Display cards in each section with quantity
+- [x] Card count totals in section headers
+- [x] dnd-kit: make cards draggable between sections
+- [x] On drop, update `section` field in `deck_cards` via Supabase
+- [x] Remove card / adjust quantity controls
 
 ## 8. Public Deck Viewing
 
