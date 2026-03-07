@@ -57,19 +57,19 @@ Minimum viable product: a user can sign up, create a deck, search for cards, add
 - [x] Show/hide sections based on format
 - [x] Display cards in each section with quantity
 - [x] Card count totals in section headers
-- [x] dnd-kit: make cards draggable between sections
-- [x] On drop, update `section` field in `deck_cards` via Supabase
+- [x] Click-to-expand card with +/- controls, right-click context menu to move between sections
+- [x] On move, update `section` field in `deck_cards` via Supabase
 - [x] Remove card / adjust quantity controls
 
 ## 8. Public Deck Viewing
 
-- [ ] Public deck route (`/deck/[id]`) — no auth required
-- [ ] Read-only deck view with all sections visible
-- [ ] Shareable URL
+- [x] Public deck route (`/deck/[id]`) — no auth required
+- [x] Read-only deck view with all sections visible
+- [x] Shareable URL
 
 ## 9. Routing
 
-- [ ] Set up React Router with routes:
+- [x] Set up React Router with routes:
   - `/` — landing / redirect
   - `/login`, `/signup`
   - `/decks` — user dashboard

@@ -39,12 +39,13 @@ interface ScryfallCard {
   mana_cost?: string;
   cmc?: number;
   type_line?: string;
+  oracle_text?: string;
   colors?: string[];
   color_identity?: string[];
   set: string;
   image_uris?: Record<string, string>;
   // multi-faced cards store images on card_faces instead
-  card_faces?: Array<{ image_uris?: Record<string, string> }>;
+  card_faces?: Array<{ image_uris?: Record<string, string>; oracle_text?: string }>;
   // we only want paper, playable cards
   layout?: string;
   lang?: string;
@@ -69,6 +70,7 @@ function toRow(card: ScryfallCard) {
     mana_cost: card.mana_cost ?? null,
     cmc: card.cmc ?? null,
     type_line: card.type_line ?? null,
+    oracle_text: card.oracle_text ?? card.card_faces?.[0]?.oracle_text ?? null,
     colors: card.colors ?? [],
     color_identity: card.color_identity ?? [],
     set_code: card.set,

@@ -12,6 +12,7 @@ export interface Card {
   colors: string[]
   color_identity: string[]
   set_code: string | null
+  oracle_text: string | null
   image_uris: { small: string; normal: string; large: string; png: string } | null
 }
 
@@ -31,6 +32,7 @@ export interface Deck {
   format: string | null
   description: string | null
   is_public: boolean
+  sections: string[]
   created_at: string
   updated_at: string
 }
@@ -40,6 +42,7 @@ export interface DeckInput {
   format: string
   description: string
   is_public: boolean
+  sections?: string[]
 }
 
 export function useDeck() {
@@ -213,10 +216,39 @@ export function useDeck() {
     })) as DeckCard[]
   }
 
+  const renameDeckCardSection = async (deckId: string, oldSection: string, newSection: string) => {
+    setError(null)
+    const { error } = await supabase
+      .from('deck_cards')
+      .update({ section: newSection })
+      .eq('deck_id', deckId)
+      .eq('section', oldSection)
+    if (error) {
+      setError(error.message)
+      return false
+    }
+    return true
+  }
+
+  const moveDeckCardsToSection = async (deckId: string, fromSection: string, toSection: string) => {
+    setError(null)
+    const { error } = await supabase
+      .from('deck_cards')
+      .update({ section: toSection })
+      .eq('deck_id', deckId)
+      .eq('section', fromSection)
+    if (error) {
+      setError(error.message)
+      return false
+    }
+    return true
+  }
+
   return {
     decks, loading, error,
     fetchDecks, fetchDeck, createDeck, updateDeck, deleteDeck,
     addCardToDeck, fetchDeckCards,
     updateDeckCardSection, updateDeckCardQuantity, removeDeckCard,
+    renameDeckCardSection, moveDeckCardsToSection,
   }
 }

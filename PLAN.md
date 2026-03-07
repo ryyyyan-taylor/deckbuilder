@@ -12,7 +12,7 @@ A Moxfield-inspired Magic: The Gathering deck hosting site. Users can create acc
 
 - **React** (with Vite) — UI framework and build tool
 - **Tailwind CSS** — utility-first styling
-- **dnd-kit** — drag-and-drop between deck sections
+- **Click-to-expand + context menu** — click cards to show +/- controls, right-click to move between sections
 - **Supabase JS client** — auth and database access from the frontend
 
 ### Backend
@@ -127,8 +127,7 @@ created_at  timestamptz default now()
 - Sections: **Commander**, **Mainboard**, **Sideboard**, **Maybeboard** (show/hide based on format)
 	- Organize by card type, options to sort by name or mana value
 	- make adding new sections/organizing easy in the future, this will be the main function
-- Each section is a droppable container via dnd-kit
-- Dragging a card between sections updates the `section` field in `deck_cards` via a Supabase update
+- Right-click context menu on cards to move between sections, updating the `section` field in `deck_cards` via Supabase
 - Card count totals per section shown in section headers
 
 ### Card Search

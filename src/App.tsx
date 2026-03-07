@@ -5,8 +5,10 @@ import { ProtectedRoute } from './components/auth/ProtectedRoute'
 import { DeckList } from './components/deck/DeckList'
 import { DeckForm } from './components/deck/DeckForm'
 import { EditDeckPage } from './components/deck/EditDeckPage'
+import { ViewDeckPage } from './components/deck/ViewDeckPage'
 import { useDeck } from './hooks/useDeck'
 import type { DeckInput } from './hooks/useDeck'
+import { useAuth } from './hooks/useAuth'
 
 function NewDeckPage() {
   const navigate = useNavigate()
@@ -28,6 +30,20 @@ function NewDeckPage() {
   )
 }
 
+function LandingRedirect() {
+  const { user, loading } = useAuth()
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+        <p className="text-gray-400">Loading...</p>
+      </div>
+    )
+  }
+
+  return <Navigate to={user ? '/decks' : '/login'} replace />
+}
+
 function App() {
   const auth = useAuthProvider()
 
@@ -35,14 +51,16 @@ function App() {
     <AuthContext.Provider value={auth}>
       <BrowserRouter>
         <Routes>
+          <Route path="/" element={<LandingRedirect />} />
           <Route path="/login" element={<AuthForm mode="login" />} />
           <Route path="/signup" element={<AuthForm mode="signup" />} />
+          <Route path="/deck/:id" element={<ViewDeckPage />} />
           <Route element={<ProtectedRoute />}>
             <Route path="/decks" element={<DeckList />} />
             <Route path="/decks/new" element={<NewDeckPage />} />
             <Route path="/decks/:id/edit" element={<EditDeckPage />} />
           </Route>
-          <Route path="*" element={<Navigate to="/decks" replace />} />
+          <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
     </AuthContext.Provider>

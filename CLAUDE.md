@@ -2,11 +2,11 @@
 
 ## Project Overview
 
-A Moxfield-inspired MTG deck hosting site. Users create accounts, build/save decks, search cards via Scryfall, and manage decks with drag-and-drop organized by section.
+A Moxfield-inspired MTG deck hosting site. Users create accounts, build/save decks, search cards via Scryfall, and manage decks with click-to-expand cards and right-click context menus organized by section.
 
 ## Tech Stack
 
-- **Frontend**: React + Vite + TypeScript, Tailwind CSS v4, dnd-kit, React Router
+- **Frontend**: React + Vite + TypeScript, Tailwind CSS v4, React Router
 - **Backend**: Vercel serverless API routes (no separate server)
 - **Database & Auth**: Supabase (PostgreSQL + Auth)
 - **External**: Scryfall API for card data, Scryfall CDN for card images (no proxying)
@@ -16,11 +16,11 @@ A Moxfield-inspired MTG deck hosting site. Users create accounts, build/save dec
 ```
 src/
   components/
-    deck/       # DeckPage, DeckSection, DraggableCard
+    deck/       # EditDeckPage, ViewDeckPage, DeckSection, DeckCardItem
     cards/      # CardSearch, CardPreview
     auth/       # LoginForm, SignupForm
   lib/          # supabase.ts client init, scryfall helpers
-  hooks/        # useAuth, useDeck, useDragAndDrop
+  hooks/        # useAuth, useDeck
 api/
   cards/
     search.ts           # GET /api/cards/search?q=<query>
@@ -60,6 +60,15 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 - `vercel dev` — local dev with API routes
 - `vercel` — deploy preview
 
+## Routes
+
+- `/` — redirects to `/decks` (logged in) or `/login` (not)
+- `/login`, `/signup` — auth pages
+- `/decks` — user deck dashboard (protected)
+- `/decks/new` — create new deck (protected)
+- `/decks/:id/edit` — deck editor (protected)
+- `/deck/:id` — public read-only deck view (no auth required, respects `is_public` flag)
+
 ## Key Decisions
 
 - Card images served directly from Scryfall CDN, not proxied (per Scryfall ToS)
@@ -69,4 +78,4 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 
 ## MVP Progress
 
-See `checklist.md` for current status. Sections 1-3 complete (scaffolding, Supabase, API routes). Next up: auth, deck CRUD, card search, drag-and-drop UI.
+See `checklist.md` for current status. Sections 1-9 complete. Only Section 10 (Deployment) remains. Future: Moxfield import feature planned in `moxfield-import.md`.

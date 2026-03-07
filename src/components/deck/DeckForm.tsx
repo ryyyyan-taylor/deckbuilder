@@ -6,6 +6,13 @@ const FORMATS = [
   'Commander', 'Pauper', 'Draft', 'Other',
 ]
 
+const COMMANDER_FORMATS = ['Commander']
+
+function getDefaultSections(format: string): string[] {
+  if (COMMANDER_FORMATS.includes(format)) return ['Commander', 'Mainboard', 'Sideboard']
+  return ['Mainboard', 'Sideboard']
+}
+
 interface DeckFormProps {
   deck?: Deck
   onSubmit: (data: DeckInput) => Promise<void>
@@ -25,7 +32,10 @@ export function DeckForm({ deck, onSubmit, onCancel }: DeckFormProps) {
     setError(null)
     setSubmitting(true)
     try {
-      await onSubmit({ name, format, description, is_public: isPublic })
+      await onSubmit({
+        name, format, description, is_public: isPublic,
+        ...(!deck ? { sections: getDefaultSections(format) } : {}),
+      })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
     } finally {
