@@ -63,7 +63,7 @@ export function ViewDeckPage() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <div className="max-w-[1600px] mx-auto px-4 py-8">
+      <div className="mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -128,7 +128,7 @@ export function ViewDeckPage() {
 
           {/* Sticky preview panel */}
           <div className="w-[300px] shrink-0 hidden lg:block">
-            <div className="sticky top-8">
+            <div className="sticky top-[25vh]">
               {previewCard ? (
                 <div>
                   {previewCard.image_uris?.normal ? (

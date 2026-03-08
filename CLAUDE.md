@@ -25,6 +25,8 @@ api/
   cards/
     search.ts           # GET /api/cards/search?q=<query>
     [scryfall_id].ts    # GET /api/cards/[scryfall_id]
+  import/
+    moxfield.ts         # POST /api/import/moxfield — import deck from Moxfield URL
   health.ts             # GET /api/health
 scripts/
   seed-cards.ts         # Scryfall bulk data seeder
@@ -75,7 +77,9 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 - Cards table seeded from Scryfall bulk data (~100k English non-digital cards), with live API fallback on cache miss
 - Tailwind CSS v4 configured via `@tailwindcss/vite` plugin (no tailwind.config, uses `@import "tailwindcss"` in CSS)
 - Supabase free tier — project pauses after 1 week of inactivity, use cron ping to `/api/health`
+- Moxfield import: server-side fetch from Moxfield API, cards looked up/inserted via Scryfall `/cards/collection` endpoint (never trust Moxfield for image data)
+- Deck editor uses 3-dot dropdown menu for Share, Edit Details, and Import from Moxfield
 
 ## MVP Progress
 
-See `checklist.md` for current status. Sections 1-9 complete. Only Section 10 (Deployment) remains. Future: Moxfield import feature planned in `moxfield-import.md`.
+See `checklist.md` for current status. MVP complete and deployed. Moxfield import feature implemented.
