@@ -134,24 +134,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const scryfallIds = [...new Set(allCards.map((c) => c.card.scryfall_id))];
 
-    // Check which cards already exist in our DB
+    // Check which cards already exist in our DB (and whether they have images)
     const { data: existingCards, error: existError } = await supabase
       .from("cards")
-      .select("id, scryfall_id")
+      .select("id, scryfall_id, image_uris")
       .in("scryfall_id", scryfallIds);
 
     if (existError) {
       return res.status(500).json({ error: "Failed to look up cards" });
     }
 
-    const existingIds = new Set((existingCards ?? []).map((c: { scryfall_id: string }) => c.scryfall_id));
-    const missingIds = scryfallIds.filter((id) => !existingIds.has(id));
+    const existingMap = new Map(
+      (existingCards ?? []).map((c: { scryfall_id: string; image_uris: unknown }) => [c.scryfall_id, c.image_uris])
+    );
+    // Fetch from Scryfall if card is missing OR exists but has no images
+    const needsFetchIds = scryfallIds.filter(
+      (id) => !existingMap.has(id) || !existingMap.get(id)
+    );
 
-    // For missing cards, fetch from Scryfall API to get proper image data
-    if (missingIds.length > 0) {
+    // For missing/imageless cards, fetch from Scryfall API to get proper image data
+    if (needsFetchIds.length > 0) {
       const BATCH_SIZE = 75;
-      for (let i = 0; i < missingIds.length; i += BATCH_SIZE) {
-        const batch = missingIds.slice(i, i + BATCH_SIZE);
+      for (let i = 0; i < needsFetchIds.length; i += BATCH_SIZE) {
+        const batch = needsFetchIds.slice(i, i + BATCH_SIZE);
         const scryfallRes = await fetch(
           "https://api.scryfall.com/cards/collection",
           {
