@@ -31,6 +31,19 @@ interface MoxfieldDeck {
   maybeboard: Record<string, MoxfieldCard>;
 }
 
+interface ScryfallCard {
+  id: string;
+  name: string;
+  mana_cost?: string;
+  cmc?: number;
+  type_line?: string;
+  colors?: string[];
+  color_identity?: string[];
+  set: string;
+  image_uris?: Record<string, string>;
+  card_faces?: Array<{ image_uris?: Record<string, string> }>;
+}
+
 const SECTION_MAP: Record<string, string> = {
   commanders: "Commander",
   mainboard: "Mainboard",
@@ -39,7 +52,7 @@ const SECTION_MAP: Record<string, string> = {
   companions: "Companion",
 };
 
-function pickImageUris(card: MoxfieldCard["card"]) {
+function pickImageUris(card: ScryfallCard) {
   const uris = card.image_uris ?? card.card_faces?.[0]?.image_uris;
   if (!uris) return null;
   return {
@@ -50,9 +63,9 @@ function pickImageUris(card: MoxfieldCard["card"]) {
   };
 }
 
-function scryfallToRow(card: MoxfieldCard["card"]) {
+function scryfallToRow(card: ScryfallCard) {
   return {
-    scryfall_id: card.scryfall_id,
+    scryfall_id: card.id,
     name: card.name,
     mana_cost: card.mana_cost ?? null,
     cmc: card.cmc ?? null,
@@ -119,14 +132,49 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(200).json({ cards: [], sections: [] });
     }
 
-    // Upsert all cards into our cards table
-    const rows = allCards.map((c) => scryfallToRow(c.card));
-    await supabase
-      .from("cards")
-      .upsert(rows, { onConflict: "scryfall_id" });
+    const scryfallIds = [...new Set(allCards.map((c) => c.card.scryfall_id))];
 
-    // Fetch the card rows to get our internal IDs
-    const scryfallIds = rows.map((r) => r.scryfall_id);
+    // Check which cards already exist in our DB
+    const { data: existingCards, error: existError } = await supabase
+      .from("cards")
+      .select("id, scryfall_id")
+      .in("scryfall_id", scryfallIds);
+
+    if (existError) {
+      return res.status(500).json({ error: "Failed to look up cards" });
+    }
+
+    const existingIds = new Set((existingCards ?? []).map((c: { scryfall_id: string }) => c.scryfall_id));
+    const missingIds = scryfallIds.filter((id) => !existingIds.has(id));
+
+    // For missing cards, fetch from Scryfall API to get proper image data
+    if (missingIds.length > 0) {
+      const BATCH_SIZE = 75;
+      for (let i = 0; i < missingIds.length; i += BATCH_SIZE) {
+        const batch = missingIds.slice(i, i + BATCH_SIZE);
+        const scryfallRes = await fetch(
+          "https://api.scryfall.com/cards/collection",
+          {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              identifiers: batch.map((id) => ({ id })),
+            }),
+          }
+        );
+        if (scryfallRes.ok) {
+          const scryfallData = await scryfallRes.json();
+          const rows = (scryfallData.data ?? []).map((card: ScryfallCard) => scryfallToRow(card));
+          if (rows.length > 0) {
+            await supabase
+              .from("cards")
+              .upsert(rows, { onConflict: "scryfall_id" });
+          }
+        }
+      }
+    }
+
+    // Fetch all card rows to get internal IDs
     const { data: dbCards, error: dbError } = await supabase
       .from("cards")
       .select("id, scryfall_id")
