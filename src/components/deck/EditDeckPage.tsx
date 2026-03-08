@@ -419,7 +419,7 @@ export function EditDeckPage() {
 
           {/* Sticky preview panel — far right */}
           <div className="w-[300px] shrink-0 hidden lg:block">
-            <div className="sticky top-8">
+            <div className="sticky top-[25vh]">
               {previewCard ? (
                 <div>
                   {previewCard.image_uris?.normal ? (
