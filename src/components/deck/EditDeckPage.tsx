@@ -172,7 +172,7 @@ export function EditDeckPage() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <div className="max-w-[1600px] mx-auto px-4 py-8">
+      <div className="mx-auto px-6 py-8">
         {/* Header */}
         <div className="flex items-center justify-between mb-6">
           <div>
@@ -292,20 +292,20 @@ export function EditDeckPage() {
           )}
         </div>
 
-        {/* Two-column layout: main content + preview panel */}
-        <div className="flex gap-6">
-          <div className="flex-1 min-w-0">
-            {/* Card search */}
-            <div className="mb-6">
-              <CardSearch
-                onAdd={handleAddCard}
-                sections={sections}
-                activeSection={sections.includes('Mainboard') ? 'Mainboard' : sections[0]}
-                onHoverCard={setPreviewCard}
-              />
-            </div>
+        {/* Card search */}
+        <div className="mb-6">
+          <CardSearch
+            onAdd={handleAddCard}
+            sections={sections}
+            activeSection={sections.includes('Mainboard') ? 'Mainboard' : sections[0]}
+            onHoverCard={setPreviewCard}
+          />
+        </div>
 
-            {/* Deck sections */}
+        {/* Main content + preview panel */}
+        <div className="flex gap-6">
+          {/* Deck sections — full width */}
+          <div className="flex-1 min-w-0">
             <div className="space-y-4">
               {sections.map((s) => (
                 <DeckSection
@@ -323,7 +323,7 @@ export function EditDeckPage() {
             </div>
           </div>
 
-          {/* Sticky preview panel */}
+          {/* Sticky preview panel — far right */}
           <div className="w-[300px] shrink-0 hidden lg:block">
             <div className="sticky top-8">
               {previewCard ? (
