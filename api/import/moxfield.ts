@@ -83,12 +83,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const moxRes = await fetch(
-      `https://api2.moxfield.com/v2/decks/all/${deckId}`
+      `https://api2.moxfield.com/v2/decks/all/${deckId}`,
+      {
+        headers: {
+          "User-Agent": "MTGDeckBuilder/1.0",
+          "Accept": "application/json",
+        },
+      }
     );
     if (!moxRes.ok) {
       return res
         .status(moxRes.status)
-        .json({ error: "Failed to fetch deck from Moxfield" });
+        .json({ error: `Failed to fetch deck from Moxfield (${moxRes.status})` });
     }
 
     const moxDeck: MoxfieldDeck = await moxRes.json();
