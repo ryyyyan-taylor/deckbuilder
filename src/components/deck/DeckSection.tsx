@@ -16,7 +16,7 @@ interface DeckSectionProps {
   readOnly?: boolean
 }
 
-const TYPE_ORDER = ['Creature', 'Planeswalker', 'Instant', 'Sorcery', 'Enchantment', 'Artifact', 'Land', 'Battle', 'Other']
+const TYPE_ORDER = ['Creature', 'Planeswalker', 'Battle', 'Sorcery', 'Instant', 'Enchantment', 'Artifact', 'Land', 'Other']
 
 function getCardType(typeLine: string | null): string {
   if (!typeLine) return 'Other'
@@ -63,7 +63,7 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
             Add cards from search
           </p>
         ) : (
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap justify-center gap-4">
             {sorted.map((dc) => (
               <DeckCardItem
                 key={dc.id}
@@ -106,11 +106,11 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
           Add cards from search
         </p>
       ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 xl:grid-cols-5 gap-8">
+        <div className="flex flex-wrap justify-center gap-10">
           {sortedGroups.map(({ type, cards: typeCards }) => {
             const typeCount = typeCards.reduce((s, dc) => s + dc.quantity, 0)
             return (
-              <div key={type} className="min-w-0">
+              <div key={type} className="w-[180px]">
                 <h4 className="text-xs font-medium text-gray-400 mb-2">
                   {type} <span className="text-gray-600">({typeCount})</span>
                 </h4>

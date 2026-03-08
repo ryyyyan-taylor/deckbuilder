@@ -103,7 +103,6 @@ export function CardSearch({ onAdd, sections, activeSection, onHoverCard }: Card
                 key={card.id}
                 className="flex items-center justify-between px-3 py-1.5 bg-gray-900 border border-gray-700 rounded hover:border-gray-500 cursor-pointer text-sm"
                 onMouseEnter={() => onHoverCard?.(card)}
-                onMouseLeave={() => onHoverCard?.(null)}
                 onClick={() => handleAdd(card)}
               >
                 <div className="min-w-0 flex items-center gap-2">

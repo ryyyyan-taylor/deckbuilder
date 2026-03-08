@@ -12,7 +12,7 @@ export function EditDeckPage() {
   const {
     fetchDeck, updateDeck, addCardToDeck, fetchDeckCards,
     updateDeckCardSection, updateDeckCardQuantity, removeDeckCard,
-    renameDeckCardSection, moveDeckCardsToSection,
+    renameDeckCardSection, moveDeckCardsToSection, bulkAddCards,
     loading, error,
   } = useDeck()
   const [deck, setDeck] = useState<Deck | null>(null)
@@ -23,8 +23,14 @@ export function EditDeckPage() {
   const [addingSectionName, setAddingSectionName] = useState<string | null>(null)
   const [renamingSection, setRenamingSection] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
+  const [showMenu, setShowMenu] = useState(false)
+  const [showImportModal, setShowImportModal] = useState(false)
+  const [importUrl, setImportUrl] = useState('')
+  const [importLoading, setImportLoading] = useState(false)
+  const [importError, setImportError] = useState<string | null>(null)
   const renameInputRef = useRef<HTMLInputElement>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   const sections = deck?.sections ?? ['Mainboard']
 
@@ -133,6 +139,60 @@ export function EditDeckPage() {
     if (!success) await loadDeckCards()
   }
 
+  // Close menu on click outside
+  useEffect(() => {
+    if (!showMenu) return
+    const handleClick = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
+        setShowMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handleClick)
+    return () => document.removeEventListener('mousedown', handleClick)
+  }, [showMenu])
+
+  const handleImport = async () => {
+    if (!id || !importUrl.trim()) return
+    setImportLoading(true)
+    setImportError(null)
+    try {
+      const res = await fetch('/api/import/moxfield', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: importUrl.trim() }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setImportError(data.error ?? 'Import failed')
+        setImportLoading(false)
+        return
+      }
+      const { cards, sections: importedSections } = data as {
+        cards: { card_id: string; section: string; quantity: number }[]
+        sections: string[]
+      }
+      if (cards.length === 0) {
+        setImportError('No cards found in that deck')
+        setImportLoading(false)
+        return
+      }
+      // Add any new sections to the deck
+      const newSections = importedSections.filter((s: string) => !sections.includes(s))
+      if (newSections.length > 0) {
+        const result = await updateDeck(id, { sections: [...sections, ...newSections] })
+        if (result) setDeck(result)
+      }
+      // Bulk insert cards
+      await bulkAddCards(id, cards)
+      await loadDeckCards()
+      setShowImportModal(false)
+      setImportUrl('')
+    } catch {
+      setImportError('Failed to import deck')
+    }
+    setImportLoading(false)
+  }
+
   // Focus inputs when they appear
   useEffect(() => {
     if (renamingSection && renameInputRef.current) {
@@ -204,12 +264,46 @@ export function EditDeckPage() {
                 Mana Value
               </button>
             </div>
-            <button
-              onClick={() => setShowEditForm(!showEditForm)}
-              className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium text-sm"
-            >
-              {showEditForm ? 'Cancel' : 'Edit Details'}
-            </button>
+            <div className="relative" ref={menuRef}>
+              <button
+                onClick={() => setShowMenu(!showMenu)}
+                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-bold tracking-wider"
+                title="Menu"
+              >
+                &#x2026;
+              </button>
+              {showMenu && (
+                <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded shadow-lg z-50">
+                  <a
+                    href={`/deck/${id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                    onClick={() => setShowMenu(false)}
+                  >
+                    Share
+                  </a>
+                  <button
+                    onClick={() => {
+                      setShowEditForm(!showEditForm)
+                      setShowMenu(false)
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                  >
+                    Edit Details
+                  </button>
+                  <button
+                    onClick={() => {
+                      setShowImportModal(true)
+                      setShowMenu(false)
+                    }}
+                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                  >
+                    Import from Moxfield
+                  </button>
+                </div>
+              )}
+            </div>
           </div>
         </div>
 
@@ -363,6 +457,52 @@ export function EditDeckPage() {
             </div>
           </div>
         </div>
+
+        {/* Import from Moxfield modal */}
+        {showImportModal && (
+          <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+            <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-md">
+              <h2 className="text-lg font-semibold mb-4">Import from Moxfield</h2>
+              <p className="text-gray-400 text-sm mb-3">
+                Paste a Moxfield deck URL to import its cards.
+              </p>
+              <input
+                type="text"
+                value={importUrl}
+                onChange={(e) => setImportUrl(e.target.value)}
+                placeholder="https://www.moxfield.com/decks/..."
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-blue-500"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter' && !importLoading) handleImport()
+                }}
+                autoFocus
+              />
+              {importError && (
+                <p className="text-red-400 text-sm mt-2">{importError}</p>
+              )}
+              <div className="flex justify-end gap-3 mt-4">
+                <button
+                  onClick={() => {
+                    setShowImportModal(false)
+                    setImportUrl('')
+                    setImportError(null)
+                  }}
+                  className="px-4 py-2 text-sm text-gray-400 hover:text-gray-300"
+                  disabled={importLoading}
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleImport}
+                  disabled={importLoading || !importUrl.trim()}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm font-medium"
+                >
+                  {importLoading ? 'Importing...' : 'Import'}
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
       </div>
     </div>
   )

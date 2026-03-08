@@ -78,7 +78,7 @@ Minimum viable product: a user can sign up, create a deck, search for cards, add
 
 ## 10. Deployment
 
-- [ ] Connect GitHub repo to Vercel
-- [ ] Set environment variables in Vercel dashboard
-- [ ] Verify preview deployment works on a branch push
-- [ ] Set up cron ping to `/api/health` to prevent Supabase pausing
+- [x] Connect GitHub repo to Vercel
+- [x] Set environment variables in Vercel dashboard
+- [x] Verify preview deployment works on a branch push
+- [ ] ~~Set up cron ping to `/api/health` to prevent Supabase pausing~~ (skipped for now)

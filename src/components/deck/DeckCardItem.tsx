@@ -75,7 +75,6 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
       onClick={readOnly ? undefined : () => { setExpanded((prev) => !prev); setContextMenu(null) }}
       onContextMenu={handleContextMenu}
       onMouseEnter={() => onHoverCard?.(deckCard.card ?? null)}
-      onMouseLeave={() => onHoverCard?.(null)}
     >
       {imageUrl ? (
         <img

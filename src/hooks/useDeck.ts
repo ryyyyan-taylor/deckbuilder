@@ -230,6 +230,22 @@ export function useDeck() {
     return true
   }
 
+  const bulkAddCards = async (deckId: string, cards: { card_id: string; section: string; quantity: number }[]) => {
+    setError(null)
+    const rows = cards.map((c) => ({
+      deck_id: deckId,
+      card_id: c.card_id,
+      section: c.section,
+      quantity: c.quantity,
+    }))
+    const { error } = await supabase.from('deck_cards').insert(rows)
+    if (error) {
+      setError(error.message)
+      return false
+    }
+    return true
+  }
+
   const moveDeckCardsToSection = async (deckId: string, fromSection: string, toSection: string) => {
     setError(null)
     const { error } = await supabase
@@ -249,6 +265,6 @@ export function useDeck() {
     fetchDecks, fetchDeck, createDeck, updateDeck, deleteDeck,
     addCardToDeck, fetchDeckCards,
     updateDeckCardSection, updateDeckCardQuantity, removeDeckCard,
-    renameDeckCardSection, moveDeckCardsToSection,
+    bulkAddCards, renameDeckCardSection, moveDeckCardsToSection,
   }
 }
