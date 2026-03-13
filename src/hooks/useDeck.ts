@@ -246,6 +246,19 @@ export function useDeck() {
     return true
   }
 
+  const updateDeckCardVersion = async (deckCardId: string, newCardId: string) => {
+    setError(null)
+    const { error } = await supabase
+      .from('deck_cards')
+      .update({ card_id: newCardId })
+      .eq('id', deckCardId)
+    if (error) {
+      setError(error.message)
+      return false
+    }
+    return true
+  }
+
   const moveDeckCardsToSection = async (deckId: string, fromSection: string, toSection: string) => {
     setError(null)
     const { error } = await supabase
@@ -265,6 +278,6 @@ export function useDeck() {
     fetchDecks, fetchDeck, createDeck, updateDeck, deleteDeck,
     addCardToDeck, fetchDeckCards,
     updateDeckCardSection, updateDeckCardQuantity, removeDeckCard,
-    bulkAddCards, renameDeckCardSection, moveDeckCardsToSection,
+    bulkAddCards, renameDeckCardSection, moveDeckCardsToSection, updateDeckCardVersion,
   }
 }

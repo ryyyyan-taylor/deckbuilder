@@ -35,7 +35,14 @@ export function CardSearch({ onAdd, sections, activeSection, onHoverCard }: Card
         throw new Error(err.error ?? 'Search failed')
       }
       const json = await res.json()
-      setResults(json.data ?? [])
+      const all: Card[] = json.data ?? []
+      const seen = new Set<string>()
+      const deduped = all.filter((c) => {
+        if (seen.has(c.name)) return false
+        seen.add(c.name)
+        return true
+      })
+      setResults(deduped)
       setExpanded(true)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Search failed')

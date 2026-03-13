@@ -12,7 +12,7 @@ export function EditDeckPage() {
   const {
     fetchDeck, updateDeck, addCardToDeck, fetchDeckCards,
     updateDeckCardSection, updateDeckCardQuantity, removeDeckCard,
-    renameDeckCardSection, moveDeckCardsToSection, bulkAddCards,
+    renameDeckCardSection, moveDeckCardsToSection, bulkAddCards, updateDeckCardVersion,
     loading, error,
   } = useDeck()
   const [deck, setDeck] = useState<Deck | null>(null)
@@ -43,7 +43,10 @@ export function EditDeckPage() {
   useEffect(() => {
     if (id) {
       fetchDeck(id).then((d) => {
-        if (d) setDeck(d)
+        if (d) {
+          setDeck(d)
+          document.title = `${d.name} — Deck Builder`
+        }
       })
       loadDeckCards()
     }
@@ -104,6 +107,7 @@ export function EditDeckPage() {
     const result = await updateDeck(id, data)
     if (!result) throw new Error(error ?? 'Failed to update deck')
     setDeck(result)
+    document.title = `${result.name} — Deck Builder`
     setShowEditForm(false)
   }
 
@@ -137,6 +141,27 @@ export function EditDeckPage() {
     )
     const success = await updateDeckCardSection(deckCardId, targetSection)
     if (!success) await loadDeckCards()
+  }
+
+  const handleAddToSection = async (cardId: string, targetSection: string) => {
+    if (!id) return
+    const success = await addCardToDeck(id, cardId, targetSection)
+    if (success) await loadDeckCards()
+  }
+
+  const handleChangeVersion = async (deckCardId: string, newCardId: string) => {
+    // Optimistic update: swap card_id and fetch new card data
+    const oldDeckCards = deckCards
+    setDeckCards((prev) =>
+      prev.map((dc) => dc.id === deckCardId ? { ...dc, card_id: newCardId } : dc)
+    )
+    const success = await updateDeckCardVersion(deckCardId, newCardId)
+    if (success) {
+      // Reload to get the full card object for the new version
+      await loadDeckCards()
+    } else {
+      setDeckCards(oldDeckCards)
+    }
   }
 
   // Close menu on click outside
@@ -412,6 +437,8 @@ export function EditDeckPage() {
                   sortBy={sortBy}
                   sections={sections}
                   onSendToSection={handleSendToSection}
+                  onAddToSection={handleAddToSection}
+                  onChangeVersion={handleChangeVersion}
                 />
               ))}
             </div>

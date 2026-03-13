@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 
@@ -9,6 +9,10 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
   const [submitting, setSubmitting] = useState(false)
   const { signIn, signUp } = useAuth()
   const navigate = useNavigate()
+
+  useEffect(() => {
+    document.title = `${mode === 'login' ? 'Log In' : 'Sign Up'} — Deck Builder`
+  }, [mode])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

@@ -28,6 +28,7 @@ export function ViewDeckPage() {
         return
       }
       setDeck(d)
+      document.title = `${d.name} — Deck Builder`
     })
     fetchDeckCards(id).then(setDeckCards)
   }, [id])

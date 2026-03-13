@@ -13,6 +13,8 @@ interface DeckSectionProps {
   sortBy: SortBy
   sections?: string[]
   onSendToSection?: (deckCardId: string, targetSection: string) => void
+  onAddToSection?: (cardId: string, targetSection: string) => void
+  onChangeVersion?: (deckCardId: string, newCardId: string) => void
   readOnly?: boolean
 }
 
@@ -45,7 +47,7 @@ function sortCards(cards: DeckCard[], sortBy: SortBy): DeckCard[] {
   })
 }
 
-export function DeckSection({ section, cards, onQuantityChange, onRemove, onHoverCard, sortBy, sections, onSendToSection, readOnly }: DeckSectionProps) {
+export function DeckSection({ section, cards, onQuantityChange, onRemove, onHoverCard, sortBy, sections, onSendToSection, onAddToSection, onChangeVersion, readOnly }: DeckSectionProps) {
   const [activeCardId, setActiveCardId] = useState<string | null>(null)
   const totalCards = cards.reduce((sum, dc) => sum + dc.quantity, 0)
   const isCommander = section === 'Commander'
@@ -73,6 +75,8 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
                 onHoverCard={onHoverCard}
                 sections={sections}
                 onSendToSection={onSendToSection}
+                onAddToSection={onAddToSection}
+                onChangeVersion={onChangeVersion}
                 readOnly={readOnly}
               />
             ))}
@@ -128,6 +132,7 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
                         onHoverCard={onHoverCard}
                         sections={sections}
                         onSendToSection={onSendToSection}
+                        onChangeVersion={onChangeVersion}
                         onActiveChange={(active) => setActiveCardId(active ? dc.id : null)}
                         readOnly={readOnly}
                       />

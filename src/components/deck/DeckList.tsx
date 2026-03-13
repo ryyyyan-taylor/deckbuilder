@@ -8,6 +8,7 @@ export function DeckList() {
   const { decks, loading, error, fetchDecks, deleteDeck } = useDeck()
 
   useEffect(() => {
+    document.title = 'My Decks — Deck Builder'
     fetchDecks()
   }, [])
 
