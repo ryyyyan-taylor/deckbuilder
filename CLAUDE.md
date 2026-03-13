@@ -19,6 +19,7 @@ src/
     deck/       # EditDeckPage, ViewDeckPage, DeckSection, DeckCardItem
     cards/      # CardSearch, CardPreview
     auth/       # LoginForm, SignupForm
+    Toast.tsx   # Lightweight toast notifications (auto-dismiss)
   lib/          # supabase.ts client init, scryfall helpers
   hooks/        # useAuth, useDeck
 api/
@@ -79,6 +80,8 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 - Supabase free tier — project pauses after 1 week of inactivity, use cron ping to `/api/health`
 - Moxfield import: server-side fetch from Moxfield API, cards looked up/inserted via Scryfall `/cards/collection` endpoint (never trust Moxfield for image data)
 - Deck editor uses 3-dot dropdown menu for Share, Edit Details, and Import from Moxfield
+- Toast notifications for deck actions (add, remove, move, import, version change) — auto-dismiss after 2s, bottom-right corner
+- Portaled modals (e.g. version picker) need explicit `text-white` since they escape the dark-themed component tree
 
 ## MVP Progress
 

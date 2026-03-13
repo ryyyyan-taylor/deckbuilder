@@ -6,6 +6,8 @@ import { DeckForm } from './DeckForm'
 import { DeckSection } from './DeckSection'
 import type { SortBy } from './DeckSection'
 import { CardSearch } from '../cards/CardSearch'
+import { Toast } from '../Toast'
+import type { ToastItem } from '../Toast'
 
 export function EditDeckPage() {
   const { id } = useParams<{ id: string }>()
@@ -31,6 +33,17 @@ export function EditDeckPage() {
   const renameInputRef = useRef<HTMLInputElement>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [toasts, setToasts] = useState<ToastItem[]>([])
+  const toastIdRef = useRef(0)
+
+  const addToast = useCallback((message: string) => {
+    const id = ++toastIdRef.current
+    setToasts((prev) => [...prev, { id, message }])
+  }, [])
+
+  const removeToast = useCallback((id: number) => {
+    setToasts((prev) => prev.filter((t) => t.id !== id))
+  }, [])
 
   const sections = deck?.sections ?? ['Mainboard']
 
@@ -118,7 +131,10 @@ export function EditDeckPage() {
   const handleAddCard = async (card: Card, section: string) => {
     if (!id) return
     const success = await addCardToDeck(id, card.id, section)
-    if (success) await loadDeckCards()
+    if (success) {
+      await loadDeckCards()
+      addToast(`Added ${card.name}`)
+    }
   }
 
   const handleQuantityChange = async (deckCardId: string, quantity: number) => {
@@ -136,7 +152,8 @@ export function EditDeckPage() {
   const handleRemove = async (deckCardId: string) => {
     setDeckCards((prev) => prev.filter((dc) => dc.id !== deckCardId))
     const success = await removeDeckCard(deckCardId)
-    if (!success) await loadDeckCards()
+    if (success) addToast('Removed card')
+    else await loadDeckCards()
   }
 
   const handleSendToSection = async (deckCardId: string, targetSection: string) => {
@@ -144,13 +161,17 @@ export function EditDeckPage() {
       prev.map((c) => (c.id === deckCardId ? { ...c, section: targetSection } : c))
     )
     const success = await updateDeckCardSection(deckCardId, targetSection)
-    if (!success) await loadDeckCards()
+    if (success) addToast(`Moved to ${targetSection}`)
+    else await loadDeckCards()
   }
 
   const handleAddToSection = async (cardId: string, targetSection: string) => {
     if (!id) return
     const success = await addCardToDeck(id, cardId, targetSection)
-    if (success) await loadDeckCards()
+    if (success) {
+      await loadDeckCards()
+      addToast(`Added to ${targetSection}`)
+    }
   }
 
   const handleChangeVersion = async (deckCardId: string, newCardId: string) => {
@@ -161,8 +182,8 @@ export function EditDeckPage() {
     )
     const success = await updateDeckCardVersion(deckCardId, newCardId)
     if (success) {
-      // Reload to get the full card object for the new version
       await loadDeckCards()
+      addToast('Version updated')
     } else {
       setDeckCards(oldDeckCards)
     }
@@ -214,6 +235,7 @@ export function EditDeckPage() {
       // Bulk insert cards
       await bulkAddCards(id, cards)
       await loadDeckCards()
+      addToast(`Imported ${cards.length} cards`)
       setShowImportModal(false)
       setImportUrl('')
     } catch {
@@ -543,6 +565,8 @@ export function EditDeckPage() {
           </div>
         )}
       </div>
+
+      <Toast toasts={toasts} onRemove={removeToast} />
     </div>
   )
 }

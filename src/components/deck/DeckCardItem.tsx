@@ -244,6 +244,8 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
                 Change Version
               </button>
             )}
+
+
           </div>
         )}
       </div>
@@ -251,7 +253,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
       {/* Version picker modal — portaled to body to escape stacking contexts */}
       {showVersionPicker && createPortal(
         <div
-          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 text-white"
           onClick={(e) => {
             if (e.target === e.currentTarget) {
               setShowVersionPicker(false)
