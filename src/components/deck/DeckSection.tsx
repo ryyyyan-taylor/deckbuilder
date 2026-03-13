@@ -132,6 +132,7 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
                         onHoverCard={onHoverCard}
                         sections={sections}
                         onSendToSection={onSendToSection}
+                        onAddToSection={onAddToSection}
                         onChangeVersion={onChangeVersion}
                         onActiveChange={(active) => setActiveCardId(active ? dc.id : null)}
                         readOnly={readOnly}

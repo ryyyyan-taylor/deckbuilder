@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import type { DeckCard, Card } from '../../hooks/useDeck'
 import { supabase } from '../../lib/supabase'
 
@@ -247,8 +248,8 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
         )}
       </div>
 
-      {/* Version picker modal */}
-      {showVersionPicker && (
+      {/* Version picker modal — portaled to body to escape stacking contexts */}
+      {showVersionPicker && createPortal(
         <div
           className="fixed inset-0 bg-black/60 flex items-center justify-center z-50"
           onClick={(e) => {
@@ -318,7 +319,8 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )

@@ -59,7 +59,13 @@ export function ViewDeckPage() {
     acc[s] = deckCards.filter((dc) => dc.section === s)
     return acc
   }, {})
-  const totalCards = deckCards.reduce((sum, dc) => sum + dc.quantity, 0)
+
+  const countForSections = (names: string[]) =>
+    deckCards.filter((dc) => names.includes(dc.section)).reduce((sum, dc) => sum + dc.quantity, 0)
+  const mainDeckCount = countForSections(['Mainboard', 'Commander'])
+  const sideboardCount = sections.includes('Sideboard') ? countForSections(['Sideboard']) : 0
+  const otherSectionNames = sections.filter((s) => !['Mainboard', 'Commander', 'Sideboard'].includes(s))
+  const otherCount = countForSections(otherSectionNames)
   const isOwner = user?.id === deck!.user_id
 
   return (
@@ -78,7 +84,9 @@ export function ViewDeckPage() {
                   {deck!.format}
                 </span>
               )}
-              <span className="text-gray-500 text-sm">{totalCards} cards</span>
+              <span className="text-gray-500 text-sm">
+                {mainDeckCount} Main{sideboardCount > 0 && ` | ${sideboardCount} Sideboard`}{otherCount > 0 && ` | ${otherCount} Other`}
+              </span>
             </div>
             {deck!.description && (
               <p className="text-gray-400 text-sm mt-2">{deck!.description}</p>

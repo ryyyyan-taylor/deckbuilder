@@ -89,6 +89,10 @@ export function EditDeckPage() {
   const handleRemoveSection = async (sectionName: string) => {
     if (sectionName === 'Mainboard' || !id) return
     const cardsInSection = deckCards.filter((dc) => dc.section === sectionName)
+    const message = cardsInSection.length > 0
+      ? `Delete "${sectionName}"? Its ${cardsInSection.length} card(s) will be moved to Mainboard.`
+      : `Delete "${sectionName}"?`
+    if (!window.confirm(message)) return
     if (cardsInSection.length > 0) {
       const success = await moveDeckCardsToSection(id, sectionName, 'Mainboard')
       if (success) {
@@ -253,7 +257,13 @@ export function EditDeckPage() {
     return acc
   }, {})
 
-  const totalCards = deckCards.reduce((sum, dc) => sum + dc.quantity, 0)
+
+  const countForSections = (names: string[]) =>
+    deckCards.filter((dc) => names.includes(dc.section)).reduce((sum, dc) => sum + dc.quantity, 0)
+  const mainDeckCount = countForSections(['Mainboard', 'Commander'])
+  const sideboardCount = sections.includes('Sideboard') ? countForSections(['Sideboard']) : 0
+  const otherSectionNames = sections.filter((s) => !['Mainboard', 'Commander', 'Sideboard'].includes(s))
+  const otherCount = countForSections(otherSectionNames)
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -271,7 +281,9 @@ export function EditDeckPage() {
                   {deck!.format}
                 </span>
               )}
-              <span className="text-gray-500 text-sm">{totalCards} cards</span>
+              <span className="text-gray-500 text-sm">
+                {mainDeckCount} Main{sideboardCount > 0 && ` | ${sideboardCount} Sideboard`}{otherCount > 0 && ` | ${otherCount} Other`}
+              </span>
             </div>
           </div>
           <div className="flex items-center gap-3">
