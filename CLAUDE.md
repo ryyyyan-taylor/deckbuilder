@@ -16,11 +16,11 @@ A Moxfield-inspired MTG deck hosting site. Users create accounts, build/save dec
 ```
 src/
   components/
-    deck/       # EditDeckPage, ViewDeckPage, DeckSection, DeckCardItem
+    deck/       # EditDeckPage, ViewDeckPage, DeckSection, DeckCardItem, ComparePage
     cards/      # CardSearch, CardPreview
     auth/       # LoginForm, SignupForm
     Toast.tsx   # Lightweight toast notifications (auto-dismiss)
-  lib/          # supabase.ts client init, scryfall helpers
+  lib/          # supabase.ts client init, cards.ts (shared type helpers)
   hooks/        # useAuth, useDeck
 api/
   cards/
@@ -67,9 +67,10 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 
 - `/` — redirects to `/decks` (logged in) or `/login` (not)
 - `/login`, `/signup` — auth pages
-- `/decks` — user deck dashboard (protected)
+- `/decks` — user deck dashboard with "My Decks" / "Utilities" tabs (protected)
 - `/decks/new` — create new deck (protected)
 - `/decks/:id/edit` — deck editor (protected)
+- `/compare` — deck compare tool, imports two Moxfield decks and shows shared/unique cards (protected)
 - `/deck/:id` — public read-only deck view (no auth required, respects `is_public` flag)
 
 ## Key Decisions
@@ -82,7 +83,12 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 - Deck editor uses 3-dot dropdown menu for Share, Edit Details, and Import from Moxfield
 - Toast notifications for deck actions (add, remove, move, import, version change) — auto-dismiss after 2s, bottom-right corner
 - Portaled modals (e.g. version picker) need explicit `text-white` since they escape the dark-themed component tree
+- Deck compare tool: `/compare` page imports two Moxfield decks via existing `/api/import/moxfield`, compares cards by name (case-insensitive), displays Shared / Unique to A / Unique to B grouped by card type
+- Compare page uses same card column layout as deck editor (w-[200px] cards in w-[180px] columns, mt-[-238px] overlap) with sticky preview pane
+- Card type helpers (`getCardType`, `TYPE_ORDER`) live in `src/lib/cards.ts` and are shared by DeckSection and ComparePage
+- `/decks` page has tabbed layout: "My Decks" tab (default) and "Utilities" tab with link to Compare tool
+- Moxfield import endpoint returns `name` field (deck name from Moxfield) in the response JSON
 
 ## MVP Progress
 
-See `checklist.md` for current status. MVP complete and deployed. Moxfield import feature implemented.
+See `checklist.md` for current status. MVP complete and deployed. Moxfield import and deck compare features implemented.
