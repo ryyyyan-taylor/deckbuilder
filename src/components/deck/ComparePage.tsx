@@ -18,8 +18,6 @@ interface ImportResult {
 interface CompareCard {
   name: string
   card: Card
-  quantityA?: number
-  quantityB?: number
 }
 
 export function ComparePage() {
@@ -27,6 +25,7 @@ export function ComparePage() {
   const [urlB, setUrlB] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [previewCard, setPreviewCard] = useState<Card | null>(null)
   const [result, setResult] = useState<{
     deckAName: string
     deckBName: string
@@ -99,17 +98,15 @@ export function ComparePage() {
         }
       }
 
-      // Build name-based maps: name -> { card, totalQuantity }
+      // Build name-based sets
       const buildNameMap = (cards: ImportedCard[]) => {
-        const map = new Map<string, { card: Card; quantity: number }>()
+        const map = new Map<string, Card>()
         for (const c of cards) {
           const card = cardMap.get(c.card_id)
           if (!card) continue
           const key = card.name.toLowerCase()
           if (!map.has(key)) {
-            map.set(key, { card, quantity: c.quantity })
-          } else {
-            map.get(key)!.quantity += c.quantity
+            map.set(key, card)
           }
         }
         return map
@@ -122,24 +119,17 @@ export function ComparePage() {
       const uniqueA: CompareCard[] = []
       const uniqueB: CompareCard[] = []
 
-      // Cards in A
-      for (const [name, { card, quantity }] of mapA) {
+      for (const [name, card] of mapA) {
         if (mapB.has(name)) {
-          shared.push({
-            name: card.name,
-            card,
-            quantityA: quantity,
-            quantityB: mapB.get(name)!.quantity,
-          })
+          shared.push({ name: card.name, card })
         } else {
-          uniqueA.push({ name: card.name, card, quantityA: quantity })
+          uniqueA.push({ name: card.name, card })
         }
       }
 
-      // Cards only in B
-      for (const [name, { card, quantity }] of mapB) {
+      for (const [name, card] of mapB) {
         if (!mapA.has(name)) {
-          uniqueB.push({ name: card.name, card, quantityB: quantity })
+          uniqueB.push({ name: card.name, card })
         }
       }
 
@@ -203,23 +193,64 @@ export function ComparePage() {
         </div>
 
         {result && (
-          <div className="space-y-8">
-            <CompareSection
-              title="Shared"
-              subtitle={`Cards in both decks`}
-              cards={result.shared}
-              showBothQuantities
-              deckAName={result.deckAName}
-              deckBName={result.deckBName}
-            />
-            <CompareSection
-              title={`Unique to ${result.deckAName}`}
-              cards={result.uniqueA}
-            />
-            <CompareSection
-              title={`Unique to ${result.deckBName}`}
-              cards={result.uniqueB}
-            />
+          <div className="flex gap-6">
+            <div className="flex-1 min-w-0 space-y-8">
+              <CompareSection
+                title="Shared"
+                cards={result.shared}
+                onHoverCard={setPreviewCard}
+              />
+              <CompareSection
+                title={`Unique to ${result.deckAName}`}
+                cards={result.uniqueA}
+                onHoverCard={setPreviewCard}
+              />
+              <CompareSection
+                title={`Unique to ${result.deckBName}`}
+                cards={result.uniqueB}
+                onHoverCard={setPreviewCard}
+              />
+            </div>
+
+            {/* Sticky preview panel */}
+            <div className="w-[300px] shrink-0 hidden lg:block">
+              <div className="sticky top-[25vh]">
+                {previewCard ? (
+                  <div>
+                    {previewCard.image_uris?.normal ? (
+                      <img
+                        src={previewCard.image_uris.normal}
+                        alt={previewCard.name}
+                        className="w-full rounded-lg shadow-xl"
+                      />
+                    ) : (
+                      <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-sm text-gray-400 p-4 text-center">
+                        No image available
+                      </div>
+                    )}
+                    <div className="mt-3 space-y-1">
+                      <p className="font-semibold text-sm">{previewCard.name}</p>
+                      {previewCard.mana_cost && (
+                        <p className="text-gray-400 text-sm">{previewCard.mana_cost}</p>
+                      )}
+                      {previewCard.type_line && (
+                        <p className="text-gray-500 text-xs">{previewCard.type_line}</p>
+                      )}
+                      {previewCard.oracle_text && (
+                        <p className="text-gray-400 text-xs mt-2 whitespace-pre-line leading-relaxed">{previewCard.oracle_text}</p>
+                      )}
+                      {previewCard.set_code && (
+                        <p className="text-gray-600 text-xs uppercase mt-2">{previewCard.set_code}</p>
+                      )}
+                    </div>
+                  </div>
+                ) : (
+                  <div className="w-full aspect-[2.5/3.5] bg-gray-800 border border-gray-700 rounded-lg flex items-center justify-center text-sm text-gray-600 p-4 text-center">
+                    Hover over a card to preview
+                  </div>
+                )}
+              </div>
+            </div>
           </div>
         )}
       </div>
@@ -229,18 +260,12 @@ export function ComparePage() {
 
 function CompareSection({
   title,
-  subtitle,
   cards,
-  showBothQuantities,
-  deckAName,
-  deckBName,
+  onHoverCard,
 }: {
   title: string
-  subtitle?: string
   cards: CompareCard[]
-  showBothQuantities?: boolean
-  deckAName?: string
-  deckBName?: string
+  onHoverCard: (card: Card | null) => void
 }) {
   if (cards.length === 0) {
     return (
@@ -248,9 +273,6 @@ function CompareSection({
         <h3 className="text-sm font-semibold text-gray-300">
           {title} <span className="text-gray-500">(0)</span>
         </h3>
-        {subtitle && (
-          <p className="text-xs text-gray-500 mt-1">{subtitle}</p>
-        )}
         <p className="text-gray-600 text-xs py-4">No cards</p>
       </div>
     )
@@ -271,12 +293,9 @@ function CompareSection({
 
   return (
     <div className="rounded border p-4 border-gray-700 bg-gray-800/50">
-      <h3 className="text-sm font-semibold text-gray-300 mb-1">
+      <h3 className="text-sm font-semibold text-gray-300 mb-3">
         {title} <span className="text-gray-500">({cards.length})</span>
       </h3>
-      {subtitle && (
-        <p className="text-xs text-gray-500 mb-3">{subtitle}</p>
-      )}
 
       <div className="flex flex-wrap justify-center gap-10">
         {sortedGroups.map(({ type, cards: typeCards }) => (
@@ -292,66 +311,29 @@ function CompareSection({
                   className={`relative ${i > 0 ? 'mt-[-238px]' : ''}`}
                   style={{ zIndex: i }}
                 >
-                  <CompareCardImage
-                    card={cc}
-                    showBothQuantities={showBothQuantities}
-                    deckAName={deckAName}
-                    deckBName={deckBName}
-                  />
+                  <div
+                    className="w-[200px]"
+                    onMouseEnter={() => onHoverCard(cc.card)}
+                  >
+                    {cc.card.image_uris?.normal ? (
+                      <img
+                        src={cc.card.image_uris.normal}
+                        alt={cc.card.name}
+                        className="w-full rounded-lg"
+                        loading="lazy"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
+                        {cc.card.name}
+                      </div>
+                    )}
+                  </div>
                 </div>
               ))}
             </div>
           </div>
         ))}
-      </div>
-    </div>
-  )
-}
-
-function CompareCardImage({
-  card: cc,
-  showBothQuantities,
-  deckAName,
-  deckBName,
-}: {
-  card: CompareCard
-  showBothQuantities?: boolean
-  deckAName?: string
-  deckBName?: string
-}) {
-  const imageUrl = cc.card.image_uris?.normal || cc.card.image_uris?.small
-
-  return (
-    <div className="relative group">
-      {imageUrl ? (
-        <img
-          src={imageUrl}
-          alt={cc.card.name}
-          className="w-[180px] rounded-lg"
-          loading="lazy"
-        />
-      ) : (
-        <div className="w-[180px] h-[252px] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
-          {cc.card.name}
-        </div>
-      )}
-
-      {/* Quantity badge */}
-      <div className="absolute top-1 left-1 flex flex-col gap-0.5">
-        {showBothQuantities ? (
-          <>
-            <span className="bg-blue-600 text-white text-xs px-1.5 py-0.5 rounded font-medium">
-              {deckAName}: {cc.quantityA}x
-            </span>
-            <span className="bg-purple-600 text-white text-xs px-1.5 py-0.5 rounded font-medium">
-              {deckBName}: {cc.quantityB}x
-            </span>
-          </>
-        ) : (
-          <span className="bg-gray-900/80 text-white text-xs px-1.5 py-0.5 rounded font-medium">
-            {(cc.quantityA ?? cc.quantityB) ?? 1}x
-          </span>
-        )}
       </div>
     </div>
   )
