@@ -6,6 +6,7 @@ import { DeckList } from './components/deck/DeckList'
 import { DeckForm } from './components/deck/DeckForm'
 import { EditDeckPage } from './components/deck/EditDeckPage'
 import { ViewDeckPage } from './components/deck/ViewDeckPage'
+import { ComparePage } from './components/deck/ComparePage'
 import { useDeck } from './hooks/useDeck'
 import type { DeckInput } from './hooks/useDeck'
 import { useAuth } from './hooks/useAuth'
@@ -59,6 +60,7 @@ function App() {
             <Route path="/decks" element={<DeckList />} />
             <Route path="/decks/new" element={<NewDeckPage />} />
             <Route path="/decks/:id/edit" element={<EditDeckPage />} />
+            <Route path="/compare" element={<ComparePage />} />
           </Route>
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>

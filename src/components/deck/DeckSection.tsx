@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import type { DeckCard, Card } from '../../hooks/useDeck'
 import { DeckCardItem } from './DeckCardItem'
+import { TYPE_ORDER, getCardType } from '../../lib/cards'
 
 export type SortBy = 'name' | 'cmc'
 
@@ -16,22 +17,6 @@ interface DeckSectionProps {
   onAddToSection?: (cardId: string, targetSection: string) => void
   onChangeVersion?: (deckCardId: string, newCardId: string) => void
   readOnly?: boolean
-}
-
-const TYPE_ORDER = ['Creature', 'Planeswalker', 'Battle', 'Sorcery', 'Instant', 'Enchantment', 'Artifact', 'Land', 'Other']
-
-function getCardType(typeLine: string | null): string {
-  if (!typeLine) return 'Other'
-  const main = typeLine.split(' — ')[0]
-  if (main.includes('Land')) return 'Land'
-  if (main.includes('Creature')) return 'Creature'
-  if (main.includes('Planeswalker')) return 'Planeswalker'
-  if (main.includes('Battle')) return 'Battle'
-  if (main.includes('Instant')) return 'Instant'
-  if (main.includes('Sorcery')) return 'Sorcery'
-  if (main.includes('Enchantment')) return 'Enchantment'
-  if (main.includes('Artifact')) return 'Artifact'
-  return 'Other'
 }
 
 function sortCards(cards: DeckCard[], sortBy: SortBy): DeckCard[] {

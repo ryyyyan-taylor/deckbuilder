@@ -202,7 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Collect which sections are used
     const usedSections = [...new Set(result.map((c) => c.section))];
 
-    return res.status(200).json({ cards: result, sections: usedSections });
+    return res.status(200).json({ name: moxDeck.name, cards: result, sections: usedSections });
   } catch {
     return res.status(500).json({ error: "Failed to import from Moxfield" });
   }
