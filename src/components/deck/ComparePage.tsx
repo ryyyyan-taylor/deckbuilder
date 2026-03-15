@@ -21,22 +21,30 @@ interface CompareCard {
 }
 
 export function ComparePage() {
-  const [urlA, setUrlA] = useState('')
-  const [urlB, setUrlB] = useState('')
+  const [urls, setUrls] = useState<string[]>(['', ''])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [previewCard, setPreviewCard] = useState<Card | null>(null)
   const [result, setResult] = useState<{
-    deckAName: string
-    deckBName: string
+    deckNames: string[]
     shared: CompareCard[]
-    uniqueA: CompareCard[]
-    uniqueB: CompareCard[]
+    unique: { name: string; cards: CompareCard[] }[]
   } | null>(null)
 
+  const updateUrl = (index: number, value: string) => {
+    setUrls((prev) => prev.map((u, i) => (i === index ? value : u)))
+  }
+
+  const addUrl = () => setUrls((prev) => [...prev, ''])
+
+  const removeUrl = (index: number) => {
+    setUrls((prev) => prev.filter((_, i) => i !== index))
+  }
+
   const handleCompare = async () => {
-    if (!urlA.trim() || !urlB.trim()) {
-      setError('Please enter both deck URLs')
+    const trimmed = urls.map((u) => u.trim())
+    if (trimmed.some((u) => !u)) {
+      setError('Please fill in all deck URLs')
       return
     }
 
@@ -45,41 +53,34 @@ export function ComparePage() {
     setResult(null)
 
     try {
-      const [resA, resB] = await Promise.all([
-        fetch('/api/import/moxfield', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: urlA.trim() }),
-        }),
-        fetch('/api/import/moxfield', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ url: urlB.trim() }),
-        }),
-      ])
-
-      if (!resA.ok || !resB.ok) {
-        const errA = !resA.ok ? await resA.json() : null
-        const errB = !resB.ok ? await resB.json() : null
-        setError(
-          errA?.error || errB?.error || 'Failed to import one or both decks'
+      const responses = await Promise.all(
+        trimmed.map((url) =>
+          fetch('/api/import/moxfield', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ url }),
+          })
         )
+      )
+
+      const failedIdx = responses.findIndex((r) => !r.ok)
+      if (failedIdx >= 0) {
+        const errData = await responses[failedIdx].json()
+        setError(errData?.error || `Failed to import deck ${failedIdx + 1}`)
         return
       }
 
-      const dataA: ImportResult = await resA.json()
-      const dataB: ImportResult = await resB.json()
+      const decks: ImportResult[] = await Promise.all(
+        responses.map((r) => r.json())
+      )
 
       // Collect all unique card_ids
       const allCardIds = [
-        ...new Set([
-          ...dataA.cards.map((c) => c.card_id),
-          ...dataB.cards.map((c) => c.card_id),
-        ]),
+        ...new Set(decks.flatMap((d) => d.cards.map((c) => c.card_id))),
       ]
 
       if (allCardIds.length === 0) {
-        setError('Both decks appear to be empty')
+        setError('All decks appear to be empty')
         return
       }
 
@@ -98,7 +99,7 @@ export function ComparePage() {
         }
       }
 
-      // Build name-based sets
+      // Build name-based sets for each deck
       const buildNameMap = (cards: ImportedCard[]) => {
         const map = new Map<string, Card>()
         for (const c of cards) {
@@ -112,34 +113,34 @@ export function ComparePage() {
         return map
       }
 
-      const mapA = buildNameMap(dataA.cards)
-      const mapB = buildNameMap(dataB.cards)
+      const nameMaps = decks.map((d) => buildNameMap(d.cards))
+      const deckNames = decks.map((d, i) => d.name || `Deck ${i + 1}`)
 
+      // Shared = cards present in ALL decks
+      const allNames = new Set(nameMaps.flatMap((m) => [...m.keys()]))
       const shared: CompareCard[] = []
-      const uniqueA: CompareCard[] = []
-      const uniqueB: CompareCard[] = []
-
-      for (const [name, card] of mapA) {
-        if (mapB.has(name)) {
+      for (const name of allNames) {
+        if (nameMaps.every((m) => m.has(name))) {
+          const card = nameMaps[0].get(name)!
           shared.push({ name: card.name, card })
-        } else {
-          uniqueA.push({ name: card.name, card })
         }
       }
 
-      for (const [name, card] of mapB) {
-        if (!mapA.has(name)) {
-          uniqueB.push({ name: card.name, card })
+      // Unique per deck = cards NOT in all other decks
+      const unique = nameMaps.map((map, idx) => {
+        const cards: CompareCard[] = []
+        for (const [name, card] of map) {
+          const inOthers = nameMaps.every(
+            (m, i) => i === idx || m.has(name)
+          )
+          if (!inOthers) {
+            cards.push({ name: card.name, card })
+          }
         }
-      }
-
-      setResult({
-        deckAName: dataA.name || 'Deck A',
-        deckBName: dataB.name || 'Deck B',
-        shared,
-        uniqueA,
-        uniqueB,
+        return { name: deckNames[idx], cards }
       })
+
+      setResult({ deckNames, shared, unique })
     } catch {
       setError('An error occurred while comparing decks')
     } finally {
@@ -161,28 +162,42 @@ export function ComparePage() {
         </div>
 
         <div className="max-w-2xl mb-8">
-          <div className="flex flex-col sm:flex-row gap-3 mb-4">
-            <input
-              type="text"
-              value={urlA}
-              onChange={(e) => setUrlA(e.target.value)}
-              placeholder="Moxfield deck URL (Deck A)"
-              className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-            />
-            <input
-              type="text"
-              value={urlB}
-              onChange={(e) => setUrlB(e.target.value)}
-              placeholder="Moxfield deck URL (Deck B)"
-              className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-            />
-            <button
-              onClick={handleCompare}
-              disabled={loading}
-              className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded font-medium text-sm shrink-0"
-            >
-              {loading ? 'Comparing...' : 'Compare'}
-            </button>
+          <div className="flex flex-col gap-3 mb-4">
+            {urls.map((url, i) => (
+              <div key={i} className="flex gap-2">
+                <input
+                  type="text"
+                  value={url}
+                  onChange={(e) => updateUrl(i, e.target.value)}
+                  placeholder={`Moxfield deck URL (Deck ${i + 1})`}
+                  className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                />
+                {urls.length > 2 && (
+                  <button
+                    onClick={() => removeUrl(i)}
+                    className="px-2 text-gray-500 hover:text-red-400 text-lg"
+                    title="Remove"
+                  >
+                    &times;
+                  </button>
+                )}
+              </div>
+            ))}
+            <div className="flex gap-3">
+              <button
+                onClick={addUrl}
+                className="px-3 py-2 border border-dashed border-gray-600 rounded text-sm text-gray-400 hover:text-gray-300 hover:border-gray-500"
+              >
+                + Add Deck
+              </button>
+              <button
+                onClick={handleCompare}
+                disabled={loading || urls.length < 2}
+                className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded font-medium text-sm"
+              >
+                {loading ? 'Comparing...' : 'Compare'}
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -200,16 +215,14 @@ export function ComparePage() {
                 cards={result.shared}
                 onHoverCard={setPreviewCard}
               />
-              <CompareSection
-                title={`Unique to ${result.deckAName}`}
-                cards={result.uniqueA}
-                onHoverCard={setPreviewCard}
-              />
-              <CompareSection
-                title={`Unique to ${result.deckBName}`}
-                cards={result.uniqueB}
-                onHoverCard={setPreviewCard}
-              />
+              {result.unique.map((u, i) => (
+                <CompareSection
+                  key={i}
+                  title={`Unique to ${u.name}`}
+                  cards={u.cards}
+                  onHoverCard={setPreviewCard}
+                />
+              ))}
             </div>
 
             {/* Sticky preview panel */}
