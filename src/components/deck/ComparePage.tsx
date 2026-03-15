@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { TYPE_ORDER, getCardType } from '../../lib/cards'
+import { TYPE_ORDER, getCardType, packColumns } from '../../lib/cards'
 import type { Card } from '../../hooks/useDeck'
 
 interface ImportedCard {
@@ -298,40 +298,44 @@ function CompareSection({
       </h3>
 
       <div className="flex flex-wrap justify-center gap-10">
-        {sortedGroups.map(({ type, cards: typeCards }) => (
-          <div key={type} className="w-[180px]">
-            <h4 className="text-xs font-medium text-gray-400 mb-2">
-              {type}{' '}
-              <span className="text-gray-600">({typeCards.length})</span>
-            </h4>
-            <div className="flex flex-col">
-              {typeCards.map((cc, i) => (
-                <div
-                  key={cc.card.id}
-                  className={`relative ${i > 0 ? 'mt-[-238px]' : ''}`}
-                  style={{ zIndex: i }}
-                >
-                  <div
-                    className="w-[200px]"
-                    onMouseEnter={() => onHoverCard(cc.card)}
-                  >
-                    {cc.card.image_uris?.normal ? (
-                      <img
-                        src={cc.card.image_uris.normal}
-                        alt={cc.card.name}
-                        className="w-full rounded-lg"
-                        loading="lazy"
-                        draggable={false}
-                      />
-                    ) : (
-                      <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
-                        {cc.card.name}
+        {packColumns(sortedGroups).map((column, colIdx) => (
+          <div key={colIdx} className="w-[180px] flex flex-col gap-4">
+            {column.map(({ type, cards: typeCards }) => (
+              <div key={type}>
+                <h4 className="text-xs font-medium text-gray-400 mb-2">
+                  {type}{' '}
+                  <span className="text-gray-600">({typeCards.length})</span>
+                </h4>
+                <div className="flex flex-col">
+                  {typeCards.map((cc, i) => (
+                    <div
+                      key={cc.card.id}
+                      className={`relative ${i > 0 ? 'mt-[-238px]' : ''}`}
+                      style={{ zIndex: i }}
+                    >
+                      <div
+                        className="w-[200px]"
+                        onMouseEnter={() => onHoverCard(cc.card)}
+                      >
+                        {cc.card.image_uris?.normal ? (
+                          <img
+                            src={cc.card.image_uris.normal}
+                            alt={cc.card.name}
+                            className="w-full rounded-lg"
+                            loading="lazy"
+                            draggable={false}
+                          />
+                        ) : (
+                          <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
+                            {cc.card.name}
+                          </div>
+                        )}
                       </div>
-                    )}
-                  </div>
+                    </div>
+                  ))}
                 </div>
-              ))}
-            </div>
+              </div>
+            ))}
           </div>
         ))}
       </div>

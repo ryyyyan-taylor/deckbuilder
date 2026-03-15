@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { DeckCard, Card } from '../../hooks/useDeck'
 import { DeckCardItem } from './DeckCardItem'
-import { TYPE_ORDER, getCardType } from '../../lib/cards'
+import { TYPE_ORDER, getCardType, packColumns } from '../../lib/cards'
 
 export type SortBy = 'name' | 'cmc'
 
@@ -96,38 +96,42 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
         </p>
       ) : (
         <div className="flex flex-wrap justify-center gap-10">
-          {sortedGroups.map(({ type, cards: typeCards }) => {
-            const typeCount = typeCards.reduce((s, dc) => s + dc.quantity, 0)
-            return (
-              <div key={type} className="w-[180px]">
-                <h4 className="text-xs font-medium text-gray-400 mb-2">
-                  {type} <span className="text-gray-600">({typeCount})</span>
-                </h4>
-                <div className="flex flex-col">
-                  {typeCards.map((dc, i) => (
-                    <div
-                      key={dc.id}
-                      className={`relative ${i > 0 ? 'mt-[-238px]' : ''}`}
-                      style={{ zIndex: activeCardId === dc.id ? 100 : i }}
-                    >
-                      <DeckCardItem
-                        deckCard={dc}
-                        onQuantityChange={onQuantityChange}
-                        onRemove={onRemove}
-                        onHoverCard={onHoverCard}
-                        sections={sections}
-                        onSendToSection={onSendToSection}
-                        onAddToSection={onAddToSection}
-                        onChangeVersion={onChangeVersion}
-                        onActiveChange={(active) => setActiveCardId(active ? dc.id : null)}
-                        readOnly={readOnly}
-                      />
+          {packColumns(sortedGroups).map((column, colIdx) => (
+            <div key={colIdx} className="w-[180px] flex flex-col gap-4">
+              {column.map(({ type, cards: typeCards }) => {
+                const typeCount = typeCards.reduce((s, dc) => s + dc.quantity, 0)
+                return (
+                  <div key={type}>
+                    <h4 className="text-xs font-medium text-gray-400 mb-2">
+                      {type} <span className="text-gray-600">({typeCount})</span>
+                    </h4>
+                    <div className="flex flex-col">
+                      {typeCards.map((dc, i) => (
+                        <div
+                          key={dc.id}
+                          className={`relative ${i > 0 ? 'mt-[-238px]' : ''}`}
+                          style={{ zIndex: activeCardId === dc.id ? 100 : i }}
+                        >
+                          <DeckCardItem
+                            deckCard={dc}
+                            onQuantityChange={onQuantityChange}
+                            onRemove={onRemove}
+                            onHoverCard={onHoverCard}
+                            sections={sections}
+                            onSendToSection={onSendToSection}
+                            onAddToSection={onAddToSection}
+                            onChangeVersion={onChangeVersion}
+                            onActiveChange={(active) => setActiveCardId(active ? dc.id : null)}
+                            readOnly={readOnly}
+                          />
+                        </div>
+                      ))}
                     </div>
-                  ))}
-                </div>
-              </div>
-            )
-          })}
+                  </div>
+                )
+              })}
+            </div>
+          ))}
         </div>
       )}
     </div>
