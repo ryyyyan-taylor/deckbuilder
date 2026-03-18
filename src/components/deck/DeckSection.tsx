@@ -2,6 +2,7 @@ import { useState } from 'react'
 import type { DeckCard, Card } from '../../hooks/useDeck'
 import { DeckCardItem } from './DeckCardItem'
 import { TYPE_ORDER, getCardType, packColumns } from '../../lib/cards'
+import { useMaxColumns } from '../../hooks/useMaxColumns'
 
 export type SortBy = 'name' | 'cmc'
 
@@ -34,6 +35,7 @@ function sortCards(cards: DeckCard[], sortBy: SortBy): DeckCard[] {
 
 export function DeckSection({ section, cards, onQuantityChange, onRemove, onHoverCard, sortBy, sections, onSendToSection, onAddToSection, onChangeVersion, readOnly }: DeckSectionProps) {
   const [activeCardId, setActiveCardId] = useState<string | null>(null)
+  const { ref: containerRef, maxColumns } = useMaxColumns()
   const totalCards = cards.reduce((sum, dc) => sum + dc.quantity, 0)
   const isCommander = section === 'Commander'
 
@@ -95,8 +97,8 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
           Add cards from search
         </p>
       ) : (
-        <div className="flex flex-wrap justify-center gap-10">
-          {packColumns(sortedGroups).map((column, colIdx) => (
+        <div ref={containerRef} className="flex flex-wrap justify-center gap-10">
+          {packColumns(sortedGroups, maxColumns).map((column, colIdx) => (
             <div key={colIdx} className="w-[180px] flex flex-col gap-4">
               {column.map(({ type, cards: typeCards }) => {
                 const typeCount = typeCards.reduce((s, dc) => s + dc.quantity, 0)

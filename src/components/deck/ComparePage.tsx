@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { TYPE_ORDER, getCardType, packColumns } from '../../lib/cards'
+import { useMaxColumns } from '../../hooks/useMaxColumns'
 import type { Card } from '../../hooks/useDeck'
 
 interface ImportedCard {
@@ -280,6 +281,8 @@ function CompareSection({
   cards: CompareCard[]
   onHoverCard: (card: Card | null) => void
 }) {
+  const { ref: containerRef, maxColumns } = useMaxColumns()
+
   if (cards.length === 0) {
     return (
       <div className="rounded border p-4 border-gray-700 bg-gray-800/50">
@@ -310,8 +313,8 @@ function CompareSection({
         {title} <span className="text-gray-500">({cards.length})</span>
       </h3>
 
-      <div className="flex flex-wrap justify-center gap-10">
-        {packColumns(sortedGroups).map((column, colIdx) => (
+      <div ref={containerRef} className="flex flex-wrap justify-center gap-10">
+        {packColumns(sortedGroups, maxColumns).map((column, colIdx) => (
           <div key={colIdx} className="w-[180px] flex flex-col gap-4">
             {column.map(({ type, cards: typeCards }) => (
               <div key={type}>

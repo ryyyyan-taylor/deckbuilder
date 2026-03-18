@@ -16,14 +16,22 @@ function groupHeight(cardCount: number): number {
   return TYPE_HEADER_HEIGHT + CARD_FULL_HEIGHT + Math.max(0, cardCount - 1) * CARD_VISIBLE
 }
 
+/** Layout constants exported for container width calculations */
+export const COLUMN_WIDTH = 180
+export const COLUMN_GAP = 40
+
 /**
- * Pack type groups into columns for efficient vertical space usage.
- * Only combines groups into shared columns when doing so actually saves
- * vertical space (reduces total column count without exceeding the tallest
- * single group's height). Preserves TYPE_ORDER.
+ * Pack type groups into columns to fit within maxColumns.
+ * Only packs when the number of groups exceeds maxColumns;
+ * otherwise each group gets its own column in TYPE_ORDER.
  */
-export function packColumns<T extends TypeGroup>(groups: T[]): T[][] {
+export function packColumns<T extends TypeGroup>(groups: T[], maxColumns: number): T[][] {
   if (groups.length === 0) return []
+
+  // No packing needed — everything fits
+  if (groups.length <= maxColumns) {
+    return groups.map((g) => [g])
+  }
 
   // Height target: the tallest single group
   const tallest = Math.max(...groups.map((g) => groupHeight(g.cards.length)))
@@ -33,7 +41,7 @@ export function packColumns<T extends TypeGroup>(groups: T[]): T[][] {
   for (const group of groups) {
     const h = groupHeight(group.cards.length)
 
-    // Find the shortest column where this group fits without exceeding tallest
+    // Try to fit into an existing column (shortest first) without exceeding tallest
     let bestIdx = -1
     let bestHeight = Infinity
 
@@ -45,17 +53,22 @@ export function packColumns<T extends TypeGroup>(groups: T[]): T[][] {
       }
     }
 
-    if (bestIdx >= 0) {
+    if (bestIdx >= 0 && columns.length >= maxColumns) {
+      // Only pack into existing column when we've hit the column limit
       columns[bestIdx].groups.push(group)
       columns[bestIdx].height += GROUP_GAP + h
-    } else {
+    } else if (columns.length < maxColumns) {
+      // Still have room for a new column
       columns.push({ groups: [group], height: h })
+    } else {
+      // No room for new column and nothing fits — pack into shortest column anyway
+      let shortestIdx = 0
+      for (let i = 1; i < columns.length; i++) {
+        if (columns[i].height < columns[shortestIdx].height) shortestIdx = i
+      }
+      columns[shortestIdx].groups.push(group)
+      columns[shortestIdx].height += GROUP_GAP + h
     }
-  }
-
-  // Only use packed layout if it actually saves columns
-  if (columns.length >= groups.length) {
-    return groups.map((g) => [g])
   }
 
   return columns.map((c) => c.groups)
