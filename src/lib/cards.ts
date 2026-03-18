@@ -20,8 +20,7 @@ function groupHeight(cardCount: number): number {
  * Pack type groups into columns for efficient vertical space usage.
  * Only combines groups into shared columns when doing so actually saves
  * vertical space (reduces total column count without exceeding the tallest
- * single group's height). Groups are sorted tallest-first for better
- * packing, which may reorder sections from TYPE_ORDER.
+ * single group's height). Preserves TYPE_ORDER.
  */
 export function packColumns<T extends TypeGroup>(groups: T[]): T[][] {
   if (groups.length === 0) return []
@@ -29,14 +28,9 @@ export function packColumns<T extends TypeGroup>(groups: T[]): T[][] {
   // Height target: the tallest single group
   const tallest = Math.max(...groups.map((g) => groupHeight(g.cards.length)))
 
-  // Sort by height descending for better bin-packing (tall groups first)
-  const sorted = [...groups].sort(
-    (a, b) => groupHeight(b.cards.length) - groupHeight(a.cards.length)
-  )
-
   const columns: { groups: T[]; height: number }[] = []
 
-  for (const group of sorted) {
+  for (const group of groups) {
     const h = groupHeight(group.cards.length)
 
     // Find the shortest column where this group fits without exceeding tallest
