@@ -20,8 +20,8 @@ src/
     cards/      # CardSearch, CardPreview
     auth/       # LoginForm, SignupForm
     Toast.tsx   # Lightweight toast notifications (auto-dismiss)
-  lib/          # supabase.ts client init, cards.ts (shared type helpers)
-  hooks/        # useAuth, useDeck
+  lib/          # supabase.ts client init, cards.ts (shared type helpers + column layout)
+  hooks/        # useAuth, useDeck, useMaxColumns
 api/
   cards/
     search.ts           # GET /api/cards/search?q=<query>
@@ -85,8 +85,8 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 - Portaled modals (e.g. version picker) need explicit `text-white` since they escape the dark-themed component tree
 - Deck compare tool: `/compare` page imports N Moxfield decks (2+ URLs, dynamically add/remove) via existing `/api/import/moxfield`, compares cards by name (case-insensitive), displays Shared (in all decks) / Unique to each deck, grouped by card type
 - Compare page uses same card column layout as deck editor (w-[200px] cards in w-[180px] columns, mt-[-238px] overlap) with sticky preview pane
-- Card type helpers (`getCardType`, `TYPE_ORDER`) and `packColumns()` live in `src/lib/cards.ts` and are shared by DeckSection and ComparePage
-- Column packing: `packColumns()` groups type categories vertically within columns to minimize wasted vertical space (similar to Moxfield's adaptive layout). Processes groups in TYPE_ORDER, places each into the shortest column that has room
+- Card type helpers (`getCardType`, `TYPE_ORDER`), `packColumns()`, and layout constants (`COLUMN_WIDTH`, `COLUMN_GAP`) live in `src/lib/cards.ts`, shared by DeckSection and ComparePage
+- Column packing: `packColumns(groups, maxColumns)` only combines type groups into shared columns when they would overflow the container width. If all groups fit, each gets its own column in TYPE_ORDER (no packing). `useMaxColumns` hook measures container width via ResizeObserver and recomputes on resize
 - `/decks` page has tabbed layout: "My Decks" tab (default) and "Utilities" tab with link to Compare tool
 - Moxfield import endpoint returns `name` field (deck name from Moxfield) in the response JSON
 
