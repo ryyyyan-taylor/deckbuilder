@@ -99,7 +99,7 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
       ) : (
         <div ref={containerRef} className="flex flex-wrap justify-center gap-10">
           {packColumns(sortedGroups, maxColumns).map((column, colIdx) => (
-            <div key={colIdx} className="w-[180px] flex flex-col gap-4">
+            <div key={colIdx} className="w-[180px] min-w-0 flex flex-col gap-4">
               {column.map(({ type, cards: typeCards }) => {
                 const typeCount = typeCards.reduce((s, dc) => s + dc.quantity, 0)
                 return (
@@ -111,7 +111,7 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
                       {typeCards.map((dc, i) => (
                         <div
                           key={dc.id}
-                          className={`relative ${i > 0 ? 'mt-[-238px]' : ''}`}
+                          className={`relative ${i > 0 ? 'mt-[-253px]' : ''}`}
                           style={{ zIndex: activeCardId === dc.id ? 100 : i }}
                         >
                           <DeckCardItem

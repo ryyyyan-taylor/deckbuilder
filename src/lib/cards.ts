@@ -2,7 +2,7 @@ export const TYPE_ORDER = ['Creature', 'Planeswalker', 'Battle', 'Sorcery', 'Ins
 
 /** Height constants for card column stacking (in px) */
 const CARD_FULL_HEIGHT = 280
-const CARD_OVERLAP = 238
+const CARD_OVERLAP = 253
 const CARD_VISIBLE = CARD_FULL_HEIGHT - CARD_OVERLAP // 42px per additional card
 const TYPE_HEADER_HEIGHT = 28
 const GROUP_GAP = 16

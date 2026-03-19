@@ -260,7 +260,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
             }
           }}
         >
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-3xl max-h-[80vh] flex flex-col">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-5xl mx-4 flex flex-col">
             <h2 className="text-lg font-semibold mb-1">Change Version</h2>
             <p className="text-gray-400 text-sm mb-4">
               {deckCard.card?.name} — select a printing
@@ -269,12 +269,12 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
             {versionsLoading ? (
               <p className="text-gray-400 text-sm py-8 text-center">Loading versions...</p>
             ) : (
-              <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+              <div className="flex-1 min-h-0 overflow-x-auto flex gap-4 py-2">
                 {versions.map((v) => (
                   <button
                     key={v.id}
                     onClick={() => setSelectedVersionId(v.id)}
-                    className={`rounded-lg overflow-hidden border-2 transition-colors ${
+                    className={`shrink-0 w-[200px] rounded-lg overflow-hidden border-2 transition-colors ${
                       selectedVersionId === v.id
                         ? 'border-blue-500'
                         : 'border-transparent hover:border-gray-500'
