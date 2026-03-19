@@ -289,7 +289,7 @@ export function EditDeckPage() {
   const showSuggestionsButton = isCommander && !!commanderName
   const showResultsButton = (isCedh || isDuelCommander) && !!commanderName
   const resultsSource = isDuelCommander ? 'mtgtop8' as const : 'edhtop16' as const
-  const deckCardIds = new Set(deckCards.map((dc) => dc.card_id))
+  const deckCardNames = new Set(deckCards.map((dc) => dc.card?.name?.toLowerCase()).filter(Boolean) as string[])
 
   const cardsBySection = sections.reduce<Record<string, DeckCard[]>>((acc, s) => {
     acc[s] = deckCards.filter((dc) => dc.section === s)
@@ -556,16 +556,16 @@ export function EditDeckPage() {
         {showSuggestions && commanderName && (
           <SuggestionsPanel
             commanderName={commanderName}
-            deckCardIds={deckCardIds}
+            deckCardNames={deckCardNames}
+            sections={sections}
             onAdd={async (cardId, section) => {
               if (!id) return
               const success = await addCardToDeck(id, cardId, section)
               if (success) {
                 await loadDeckCards()
-                addToast('Added from suggestions')
+                addToast(`Added to ${section}`)
               }
             }}
-            onHoverCard={setPreviewCard}
             onClose={() => setShowSuggestions(false)}
           />
         )}

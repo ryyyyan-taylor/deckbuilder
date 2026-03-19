@@ -247,6 +247,19 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
               </button>
             )}
 
+            {/* View on Scryfall */}
+            {deckCard.card?.scryfall_id && (
+              <a
+                href={`https://scryfall.com/card/${deckCard.card.scryfall_id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block w-full text-left px-3 py-1.5 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
+                onMouseEnter={() => setActiveSubmenu(null)}
+                onClick={() => setContextMenu(null)}
+              >
+                View on Scryfall
+              </a>
+            )}
 
           </div>
         )}
@@ -287,6 +300,12 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
                   <button
                     key={v.id}
                     onClick={() => setSelectedVersionId(v.id)}
+                    onDoubleClick={() => {
+                      if (v.id !== deckCard.card_id) {
+                        onChangeVersion?.(deckCard.id, v.id)
+                        setShowVersionPicker(false)
+                      }
+                    }}
                     className={`rounded-lg overflow-hidden border-2 transition-colors ${
                       selectedVersionId === v.id
                         ? 'border-blue-500'
