@@ -262,7 +262,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
             }
           }}
         >
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-3xl mx-4 max-h-[80vh] flex flex-col">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-md mx-4 max-h-[80vh] flex flex-col">
             <h2 className="text-lg font-semibold mb-1">Change Version</h2>
             <p className="text-gray-400 text-sm mb-3">
               {deckCard.card?.name} — select a printing
@@ -279,34 +279,35 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
             {versionsLoading ? (
               <p className="text-gray-400 text-sm py-8 text-center">Loading versions...</p>
             ) : (
-              <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+              <div className="flex-1 min-h-0 overflow-y-auto flex flex-col gap-2">
                 {versions
                   .filter((v) => !versionSearch || v.set_code?.toLowerCase().includes(versionSearch.toLowerCase()))
                   .map((v) => (
                   <button
                     key={v.id}
                     onClick={() => setSelectedVersionId(v.id)}
-                    className={`rounded-lg overflow-hidden border-2 transition-colors ${
+                    className={`flex items-center gap-3 rounded-lg border-2 p-2 transition-colors ${
                       selectedVersionId === v.id
-                        ? 'border-blue-500'
-                        : 'border-transparent hover:border-gray-500'
+                        ? 'border-blue-500 bg-gray-700/50'
+                        : 'border-transparent hover:border-gray-500 hover:bg-gray-700/30'
                     }`}
                   >
                     {v.image_uris?.normal ? (
                       <img
                         src={v.image_uris.normal}
                         alt={`${v.name} (${v.set_code})`}
-                        className="w-full rounded-md"
+                        className="w-16 rounded shrink-0"
                         draggable={false}
                       />
                     ) : (
-                      <div className="w-full aspect-[2.5/3.5] bg-gray-700 flex items-center justify-center text-xs text-gray-400 p-1 text-center">
+                      <div className="w-16 aspect-[2.5/3.5] bg-gray-700 rounded shrink-0 flex items-center justify-center text-xs text-gray-400">
                         No image
                       </div>
                     )}
-                    <p className="text-xs text-gray-400 uppercase text-center mt-1 pb-1">
-                      {v.set_code}
-                    </p>
+                    <div className="text-left">
+                      <p className="text-sm font-medium uppercase">{v.set_code}</p>
+                      <p className="text-xs text-gray-400">{v.name}</p>
+                    </div>
                   </button>
                 ))}
               </div>
