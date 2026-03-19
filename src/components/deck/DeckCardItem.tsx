@@ -279,7 +279,8 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
             {versionsLoading ? (
               <p className="text-gray-400 text-sm py-8 text-center">Loading versions...</p>
             ) : (
-              <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+              <div className="flex-1 min-h-0 overflow-y-auto">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
                 {versions
                   .filter((v) => !versionSearch || v.set_code?.toLowerCase().includes(versionSearch.toLowerCase()))
                   .map((v) => (
@@ -309,6 +310,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
                     </p>
                   </button>
                 ))}
+              </div>
               </div>
             )}
 
