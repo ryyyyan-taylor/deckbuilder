@@ -111,7 +111,7 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
                       {typeCards.map((dc, i) => (
                         <div
                           key={dc.id}
-                          className={`relative ${i > 0 ? 'mt-[-253px]' : ''}`}
+                          className={`relative ${i > 0 ? 'mt-[-247px]' : ''}`}
                           style={{ zIndex: activeCardId === dc.id ? 100 : i }}
                         >
                           <DeckCardItem

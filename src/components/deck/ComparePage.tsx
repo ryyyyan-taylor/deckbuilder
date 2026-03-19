@@ -326,7 +326,7 @@ function CompareSection({
                   {typeCards.map((cc, i) => (
                     <div
                       key={cc.card.id}
-                      className={`relative ${i > 0 ? 'mt-[-253px]' : ''}`}
+                      className={`relative ${i > 0 ? 'mt-[-247px]' : ''}`}
                       style={{ zIndex: i }}
                     >
                       <div

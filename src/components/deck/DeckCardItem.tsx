@@ -24,6 +24,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
   const [versions, setVersions] = useState<Card[]>([])
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const [versionsLoading, setVersionsLoading] = useState(false)
+  const [versionSearch, setVersionSearch] = useState('')
   const cardRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
@@ -78,6 +79,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
     setVersionsLoading(true)
     setShowVersionPicker(true)
     setSelectedVersionId(deckCard.card_id)
+    setVersionSearch('')
 
     const { data } = await supabase
       .from('cards')
@@ -260,21 +262,31 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
             }
           }}
         >
-          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-5xl mx-4 flex flex-col">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-3xl mx-4 max-h-[80vh] flex flex-col">
             <h2 className="text-lg font-semibold mb-1">Change Version</h2>
-            <p className="text-gray-400 text-sm mb-4">
+            <p className="text-gray-400 text-sm mb-3">
               {deckCard.card?.name} — select a printing
             </p>
+
+            <input
+              type="text"
+              value={versionSearch}
+              onChange={(e) => setVersionSearch(e.target.value)}
+              placeholder="Filter by set code..."
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm mb-4 focus:outline-none focus:border-blue-500"
+            />
 
             {versionsLoading ? (
               <p className="text-gray-400 text-sm py-8 text-center">Loading versions...</p>
             ) : (
-              <div className="flex-1 min-h-0 overflow-x-auto flex gap-4 py-2">
-                {versions.map((v) => (
+              <div className="flex-1 min-h-0 overflow-y-auto grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                {versions
+                  .filter((v) => !versionSearch || v.set_code?.toLowerCase().includes(versionSearch.toLowerCase()))
+                  .map((v) => (
                   <button
                     key={v.id}
                     onClick={() => setSelectedVersionId(v.id)}
-                    className={`shrink-0 w-[200px] rounded-lg overflow-hidden border-2 transition-colors ${
+                    className={`rounded-lg overflow-hidden border-2 transition-colors ${
                       selectedVersionId === v.id
                         ? 'border-blue-500'
                         : 'border-transparent hover:border-gray-500'
