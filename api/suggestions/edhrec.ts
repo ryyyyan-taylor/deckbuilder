@@ -12,7 +12,7 @@ interface EdhrecCard {
   synergy: number;
   inclusion: number;
   num_decks: number;
-  label?: string;
+  potential_decks: number;
 }
 
 interface EdhrecCardlist {
@@ -21,7 +21,11 @@ interface EdhrecCardlist {
 }
 
 interface EdhrecResponse {
-  cardlists: EdhrecCardlist[];
+  container: {
+    json_dict: {
+      cardlists: EdhrecCardlist[];
+    };
+  };
 }
 
 interface ScryfallCard {
@@ -71,7 +75,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(400).json({ error: "Missing commander query parameter" });
   }
 
-  const slug = commanderToSlug(commander);
+  // Partner commanders: "Name A / Name B" → "name-a/name-b" for EDHREC URL
+  const slug = commander
+    .split(" / ")
+    .map((part) => commanderToSlug(part.trim()))
+    .join("/");
 
   try {
     // Check cache
@@ -101,14 +109,15 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const edhrecData: EdhrecResponse = await edhrecRes.json();
+    const cardlists = edhrecData.container?.json_dict?.cardlists ?? [];
 
     // Parse categories from cardlists
     const categories: {
       name: string;
-      cards: { name: string; inclusion: number; synergy: number; num_decks: number }[];
+      cards: { name: string; inclusion: number; synergy: number; num_decks: number; potential_decks: number }[];
     }[] = [];
 
-    for (const list of edhrecData.cardlists ?? []) {
+    for (const list of cardlists) {
       if (!list.cardviews || list.cardviews.length === 0) continue;
       categories.push({
         name: list.header,
@@ -117,6 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           inclusion: cv.inclusion,
           synergy: cv.synergy,
           num_decks: cv.num_decks,
+          potential_decks: cv.potential_decks,
         })),
       });
     }
@@ -197,10 +207,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         cards: cat.cards
           .map((c) => {
             const resolved = cardMap.get(c.name);
+            const pct = c.potential_decks > 0 ? c.inclusion / c.potential_decks : 0;
             return {
               card_id: resolved?.id ?? null,
               name: c.name,
-              inclusion: c.inclusion,
+              inclusion: pct,
               synergy: c.synergy,
               num_decks: c.num_decks,
               image_uri: resolved?.image_uri ?? null,

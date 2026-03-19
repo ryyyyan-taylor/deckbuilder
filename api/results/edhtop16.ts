@@ -9,16 +9,21 @@ const supabase = createClient(
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
 interface GqlEntry {
-  standing: number;
-  wins: number;
-  losses: number;
-  draws: number;
-  decklist: string;
-  player: string;
-  tournament: {
-    name: string;
-    size: number;
-    tournamentDate: string;
+  node: {
+    standing: number;
+    winRate: number;
+    wins: number;
+    losses: number;
+    draws: number;
+    decklist: string | null;
+    player: {
+      name: string;
+    };
+    tournament: {
+      name: string;
+      size: number;
+      tournamentDate: string;
+    };
   };
 }
 
@@ -50,25 +55,29 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }
     }
 
-    // Query EDHTop16 GraphQL API
+    // EDHTop16 uses commander(name).entries() pattern
     const query = `
-      query($commanderNames: [String!]) {
-        entries(
-          commanderNames: $commanderNames
-          sortBy: "standing"
-          sortOrder: "ASC"
-          limit: 50
-        ) {
-          standing
-          wins
-          losses
-          draws
-          decklist
-          player
-          tournament {
-            name
-            size
-            tournamentDate
+      query($name: String!) {
+        commander(name: $name) {
+          entries(first: 50, sortBy: NEW, filters: { minEventSize: 1, timePeriod: ALL_TIME }) {
+            edges {
+              node {
+                standing
+                winRate
+                wins
+                losses
+                draws
+                decklist
+                player {
+                  name
+                }
+                tournament {
+                  name
+                  size
+                  tournamentDate
+                }
+              }
+            }
           }
         }
       }
@@ -82,7 +91,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       body: JSON.stringify({
         query,
-        variables: { commanderNames: [commander] },
+        variables: { name: commander },
       }),
     });
 
@@ -93,18 +102,25 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const gqlData = await gqlRes.json();
-    const entries: GqlEntry[] = gqlData?.data?.entries ?? [];
 
-    const results = entries.map((e) => ({
-      tournament_name: e.tournament.name,
-      date: e.tournament.tournamentDate,
-      player: e.player,
-      standing: e.standing,
-      wins: e.wins,
-      losses: e.losses,
-      draws: e.draws,
-      decklist_url: e.decklist || null,
-      tournament_size: e.tournament.size,
+    if (gqlData.errors) {
+      return res
+        .status(502)
+        .json({ error: gqlData.errors[0]?.message ?? "GraphQL error" });
+    }
+
+    const edges: GqlEntry[] = gqlData?.data?.commander?.entries?.edges ?? [];
+
+    const results = edges.map((e) => ({
+      tournament_name: e.node.tournament.name,
+      date: e.node.tournament.tournamentDate,
+      player: e.node.player.name,
+      standing: e.node.standing,
+      wins: e.node.wins,
+      losses: e.node.losses,
+      draws: e.node.draws,
+      decklist_url: e.node.decklist || null,
+      tournament_size: e.node.tournament.size,
     }));
 
     const result = { results };

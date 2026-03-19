@@ -9,6 +9,15 @@ const supabase = createClient(
 
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
+function parseMtgTop8Date(dateStr: string): string {
+  // Format: DD/MM/YY → YYYY-MM-DD
+  const match = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
+  if (!match) return dateStr;
+  const [, day, month, year] = match;
+  const fullYear = parseInt(year, 10) >= 70 ? `19${year}` : `20${year}`;
+  return `${fullYear}-${month}-${day}`;
+}
+
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
@@ -62,28 +71,36 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       tournament_size: number | null;
     }[] = [];
 
-    // MTGTop8 search results are in table rows
-    // Each result row has: deck name (link), player, event, placement, date
-    $("table.Stable tr").each((_i, row) => {
+    // Results are in tr.hover_tr rows
+    // Columns: checkbox, deck (link), player, format, event, level, rank, date
+    $("tr.hover_tr").each((_i, row) => {
       const cells = $(row).find("td");
-      if (cells.length < 4) return;
+      if (cells.length < 8) return;
 
-      const deckLink = $(cells[0]).find("a");
+      // Col 1: Deck name with link to decklist
+      const deckLink = $(cells[1]).find("a");
       const deckHref = deckLink.attr("href");
-      const player = $(cells[1]).text().trim();
-      const event = $(cells[2]).text().trim();
-      const placementText = $(cells[3]).text().trim();
-      const dateText = cells.length >= 5 ? $(cells[4]).text().trim() : "";
 
-      if (!player || !event) return;
+      // Col 2: Player name
+      const player = $(cells[2]).text().trim();
 
-      const standingMatch = placementText.match(/(\d+)/);
+      // Col 4: Event name
+      const event = $(cells[4]).text().trim();
+
+      // Col 6: Rank/placement
+      const rankText = $(cells[6]).text().trim();
+      const rankMatch = rankText.match(/^(\d+)/);
+
+      // Col 7: Date (DD/MM/YY)
+      const dateText = $(cells[7]).text().trim();
+
+      if (!player && !event) return;
 
       results.push({
         tournament_name: event,
-        date: dateText,
+        date: parseMtgTop8Date(dateText),
         player,
-        standing: standingMatch ? parseInt(standingMatch[1], 10) : null,
+        standing: rankMatch ? parseInt(rankMatch[1], 10) : null,
         decklist_url: deckHref
           ? `https://www.mtgtop8.com/${deckHref}`
           : null,
