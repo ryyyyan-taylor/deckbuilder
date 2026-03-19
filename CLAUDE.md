@@ -16,7 +16,8 @@ A Moxfield-inspired MTG deck hosting site. Users create accounts, build/save dec
 ```
 src/
   components/
-    deck/       # EditDeckPage, ViewDeckPage, DeckSection, DeckCardItem, ComparePage
+    deck/       # EditDeckPage, ViewDeckPage, DeckSection, DeckCardItem, ComparePage,
+                # SuggestionsPanel, ResultsPanel
     cards/      # CardSearch, CardPreview
     auth/       # LoginForm, SignupForm
     Toast.tsx   # Lightweight toast notifications (auto-dismiss)
@@ -28,6 +29,11 @@ api/
     [scryfall_id].ts    # GET /api/cards/[scryfall_id]
   import/
     moxfield.ts         # POST /api/import/moxfield — import deck from Moxfield URL
+  suggestions/
+    edhrec.ts           # GET /api/suggestions/edhrec?commander={name} — EDHREC recommendations
+  results/
+    edhtop16.ts         # GET /api/results/edhtop16?commander={name} — cEDH tournament results
+    mtgtop8.ts          # GET /api/results/mtgtop8?commander={name} — Duel Commander results
   health.ts             # GET /api/health
 scripts/
   seed-cards.ts         # Scryfall bulk data seeder
@@ -37,12 +43,14 @@ supabase/
 
 ## Database Schema
 
-Three tables in Supabase:
+Five tables in Supabase:
 - **cards** — Scryfall cache (seeded from bulk data, ~100k rows). Key columns: scryfall_id, name, mana_cost, cmc, type_line, colors, color_identity, set_code, image_uris (jsonb)
 - **decks** — user decks. Key columns: user_id, name, format, description, is_public
 - **deck_cards** — cards in a deck. Key columns: deck_id, card_id, section, quantity
+- **edhrec_cache** — EDHREC card recommendations cache. Key columns: commander_name (slug, unique), data (jsonb), fetched_at. 24h TTL
+- **tournament_cache** — Tournament results cache. Key columns: commander_name, source ('edhtop16'|'mtgtop8'), data (jsonb), fetched_at. unique(commander_name, source). 6h TTL
 
-RLS is enabled on all tables. Cards are publicly readable. Decks are owner-CRUD + public-read. Deck cards follow deck ownership.
+RLS is enabled on all tables. Cards and cache tables are publicly readable. Decks are owner-CRUD + public-read. Deck cards follow deck ownership. Cache writes via service role key.
 
 ## Environment Variables
 
@@ -89,7 +97,13 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 - Column packing: `packColumns(groups, maxColumns)` only combines type groups into shared columns when they would overflow the container width. If all groups fit, each gets its own column in TYPE_ORDER (no packing). `useMaxColumns` hook measures container width via ResizeObserver and recomputes on resize
 - `/decks` page has tabbed layout: "My Decks" tab (default) and "Utilities" tab with link to Compare tool
 - Moxfield import endpoint returns `name` field (deck name from Moxfield) in the response JSON
+- Suggestions & Results: format-aware header buttons in deck editor — Commander → "Suggestions" (EDHREC), cEDH → "Results" (EDHTop16), Duel Commander → "Results" (MTGTop8). Buttons only show when commander card exists
+- External data cached server-side in Supabase: edhrec_cache (24h TTL), tournament_cache (6h TTL, keyed by commander_name+source)
+- EDHREC API: JSON at `json.edhrec.com/pages/commanders/{slug}.json`, cardlists at `container.json_dict.cardlists`, partner commanders use `slug1/slug2` URL format, `inclusion` is raw count (divide by `potential_decks` for percentage)
+- EDHTop16 GraphQL API: `commander(name).entries(first, sortBy, filters)` with Relay cursor pagination (edges/node pattern), player is object with name field
+- MTGTop8 scraping: HTML parsed with cheerio, results in `tr.hover_tr` rows with 8 columns, dates in DD/MM/YY format, includes `fallback_url` on scraping failure
+- Formats with commander section: Commander, cEDH, Duel Commander (all get Commander+Mainboard+Sideboard default sections)
 
 ## MVP Progress
 
-See `checklist.md` for current status. MVP complete and deployed. Moxfield import and deck compare features implemented.
+See `checklist.md` for current status. MVP complete and deployed. Moxfield import, deck compare, and suggestions/tournament results features implemented.
