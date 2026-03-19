@@ -3,10 +3,10 @@ import type { Deck, DeckInput } from '../../hooks/useDeck'
 
 const FORMATS = [
   'Standard', 'Modern', 'Pioneer', 'Legacy', 'Vintage',
-  'Commander', 'cEDH', 'Pauper', 'Draft', 'Other',
+  'Commander', 'cEDH', 'Duel Commander', 'Pauper', 'Draft', 'Other',
 ]
 
-const COMMANDER_FORMATS = ['Commander', 'cEDH']
+const COMMANDER_FORMATS = ['Commander', 'cEDH', 'Duel Commander']
 
 function getDefaultSections(format: string): string[] {
   if (COMMANDER_FORMATS.includes(format)) return ['Commander', 'Mainboard', 'Sideboard']

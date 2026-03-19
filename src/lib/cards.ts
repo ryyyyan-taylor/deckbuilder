@@ -74,6 +74,10 @@ export function packColumns<T extends TypeGroup>(groups: T[], maxColumns: number
   return columns.map((c) => c.groups)
 }
 
+export function commanderToSlug(name: string): string {
+  return name.toLowerCase().replace(/[',]/g, '').replace(/\s+/g, '-')
+}
+
 export function getCardType(typeLine: string | null): string {
   if (!typeLine) return 'Other'
   const main = typeLine.split(' — ')[0]

@@ -6,6 +6,8 @@ import { DeckForm } from './DeckForm'
 import { DeckSection } from './DeckSection'
 import type { SortBy } from './DeckSection'
 import { CardSearch } from '../cards/CardSearch'
+import { SuggestionsPanel } from './SuggestionsPanel'
+import { ResultsPanel } from './ResultsPanel'
 import { Toast } from '../Toast'
 import type { ToastItem } from '../Toast'
 
@@ -33,6 +35,8 @@ export function EditDeckPage() {
   const renameInputRef = useRef<HTMLInputElement>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const [showSuggestions, setShowSuggestions] = useState(false)
+  const [showResults, setShowResults] = useState(false)
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const toastIdRef = useRef(0)
 
@@ -274,6 +278,19 @@ export function EditDeckPage() {
     )
   }
 
+  // Commander detection for suggestions/results buttons
+  const commanderCards = deckCards.filter((dc) => dc.section === 'Commander')
+  const commanderName = commanderCards.length > 0
+    ? commanderCards.map((dc) => dc.card?.name).filter(Boolean).join(' / ')
+    : null
+  const isCommander = deck?.format === 'Commander'
+  const isCedh = deck?.format === 'cEDH'
+  const isDuelCommander = deck?.format === 'Duel Commander'
+  const showSuggestionsButton = isCommander && !!commanderName
+  const showResultsButton = (isCedh || isDuelCommander) && !!commanderName
+  const resultsSource = isDuelCommander ? 'mtgtop8' as const : 'edhtop16' as const
+  const deckCardIds = new Set(deckCards.map((dc) => dc.card_id))
+
   const cardsBySection = sections.reduce<Record<string, DeckCard[]>>((acc, s) => {
     acc[s] = deckCards.filter((dc) => dc.section === s)
     return acc
@@ -309,6 +326,22 @@ export function EditDeckPage() {
             </div>
           </div>
           <div className="flex items-center gap-3">
+            {showSuggestionsButton && (
+              <button
+                onClick={() => setShowSuggestions(true)}
+                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded text-sm font-medium"
+              >
+                Suggestions
+              </button>
+            )}
+            {showResultsButton && (
+              <button
+                onClick={() => setShowResults(true)}
+                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded text-sm font-medium"
+              >
+                Results
+              </button>
+            )}
             <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
               <button
                 onClick={() => setSortBy('name')}
@@ -518,6 +551,33 @@ export function EditDeckPage() {
             </div>
           </div>
         </div>
+
+        {/* Suggestions panel */}
+        {showSuggestions && commanderName && (
+          <SuggestionsPanel
+            commanderName={commanderName}
+            deckCardIds={deckCardIds}
+            onAdd={async (cardId, section) => {
+              if (!id) return
+              const success = await addCardToDeck(id, cardId, section)
+              if (success) {
+                await loadDeckCards()
+                addToast('Added from suggestions')
+              }
+            }}
+            onHoverCard={setPreviewCard}
+            onClose={() => setShowSuggestions(false)}
+          />
+        )}
+
+        {/* Results panel */}
+        {showResults && commanderName && (
+          <ResultsPanel
+            commanderName={commanderName}
+            source={resultsSource}
+            onClose={() => setShowResults(false)}
+          />
+        )}
 
         {/* Import from Moxfield modal */}
         {showImportModal && (
