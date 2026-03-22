@@ -1,5 +1,5 @@
-import { useEffect, useState } from 'react'
-import { Link } from 'react-router-dom'
+import { useEffect, useState, useMemo } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import { useAuth } from '../../hooks/useAuth'
 import { useDeck } from '../../hooks/useDeck'
 
@@ -9,16 +9,38 @@ export function DeckList() {
   const { signOut } = useAuth()
   const { decks, loading, error, fetchDecks, deleteDeck } = useDeck()
   const [tab, setTab] = useState<Tab>('decks')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const formatFilter = searchParams.get('format')
 
   useEffect(() => {
-    document.title = 'My Decks — Deck Builder'
+    document.title = formatFilter
+      ? `${formatFilter} Decks — Deck Builder`
+      : 'My Decks — Deck Builder'
     fetchDecks()
-  }, [])
+  }, [formatFilter])
 
   const handleDelete = async (id: string, name: string) => {
     if (!window.confirm(`Delete "${name}"? This cannot be undone.`)) return
     await deleteDeck(id)
   }
+
+  const formatGroups = useMemo(() => {
+    const groups = new Map<string, typeof decks>()
+    for (const deck of decks) {
+      const fmt = deck.format || 'Unformatted'
+      const list = groups.get(fmt)
+      if (list) list.push(deck)
+      else groups.set(fmt, [deck])
+    }
+    return groups
+  }, [decks])
+
+  const filteredDecks = useMemo(() => {
+    if (!formatFilter) return []
+    return decks.filter((d) =>
+      formatFilter === 'Unformatted' ? !d.format : d.format === formatFilter
+    )
+  }, [decks, formatFilter])
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
@@ -26,7 +48,7 @@ export function DeckList() {
         <div className="flex items-center justify-between mb-6">
           <div className="flex gap-1">
             <button
-              onClick={() => setTab('decks')}
+              onClick={() => { setTab('decks'); setSearchParams({}) }}
               className={`px-4 py-2 rounded-t font-medium text-sm border-b-2 ${
                 tab === 'decks'
                   ? 'border-blue-500 text-white'
@@ -36,7 +58,7 @@ export function DeckList() {
               My Decks
             </button>
             <button
-              onClick={() => setTab('utilities')}
+              onClick={() => { setTab('utilities'); setSearchParams({}) }}
               className={`px-4 py-2 rounded-t font-medium text-sm border-b-2 ${
                 tab === 'utilities'
                   ? 'border-blue-500 text-white'
@@ -76,38 +98,64 @@ export function DeckList() {
               <p className="text-gray-400">Loading...</p>
             ) : decks.length === 0 ? (
               <p className="text-gray-400">No decks yet. Create one to get started!</p>
-            ) : (
-              <div className="space-y-2">
-                {decks.map((deck) => (
-                  <div
-                    key={deck.id}
-                    className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded px-4 py-3"
-                  >
-                    <div className="min-w-0">
-                      <Link
-                        to={`/decks/${deck.id}/edit`}
-                        className="text-blue-400 hover:underline font-medium"
+            ) : formatFilter ? (
+              /* Filtered deck list for a specific format */
+              <>
+                <button
+                  onClick={() => setSearchParams({})}
+                  className="text-sm text-gray-400 hover:text-gray-200 mb-4 flex items-center gap-1"
+                >
+                  &larr; All Formats
+                </button>
+                <h2 className="text-lg font-semibold mb-3">{formatFilter}</h2>
+                {filteredDecks.length === 0 ? (
+                  <p className="text-gray-400">No decks in this format.</p>
+                ) : (
+                  <div className="space-y-2">
+                    {filteredDecks.map((deck) => (
+                      <div
+                        key={deck.id}
+                        className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded px-4 py-3"
                       >
-                        {deck.name}
-                      </Link>
-                      <div className="flex gap-3 text-sm text-gray-400 mt-1">
-                        {deck.format && (
-                          <span className="bg-gray-700 px-2 py-0.5 rounded text-xs">
-                            {deck.format}
-                          </span>
-                        )}
-                        <span>
-                          {new Date(deck.updated_at).toLocaleDateString()}
-                        </span>
+                        <div className="min-w-0">
+                          <Link
+                            to={`/decks/${deck.id}/edit`}
+                            className="text-blue-400 hover:underline font-medium"
+                          >
+                            {deck.name}
+                          </Link>
+                          <div className="text-sm text-gray-400 mt-1">
+                            {new Date(deck.updated_at).toLocaleDateString()}
+                          </div>
+                        </div>
+                        <button
+                          onClick={() => handleDelete(deck.id, deck.name)}
+                          className="text-red-400 hover:text-red-300 text-sm ml-4 shrink-0"
+                        >
+                          Delete
+                        </button>
                       </div>
-                    </div>
-                    <button
-                      onClick={() => handleDelete(deck.id, deck.name)}
-                      className="text-red-400 hover:text-red-300 text-sm ml-4 shrink-0"
-                    >
-                      Delete
-                    </button>
+                    ))}
                   </div>
+                )}
+              </>
+            ) : (
+              /* Format folders overview */
+              <div className="space-y-2">
+                {[...formatGroups.entries()].map(([format, groupDecks]) => (
+                  <button
+                    key={format}
+                    onClick={() => setSearchParams({ format })}
+                    className="w-full flex items-center justify-between bg-gray-800 border border-gray-700 rounded px-4 py-4 hover:border-gray-500 transition-colors text-left"
+                  >
+                    <div className="flex items-center gap-3">
+                      <svg className="w-5 h-5 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M3 7v10a2 2 0 002 2h14a2 2 0 002-2V9a2 2 0 00-2-2h-6l-2-2H5a2 2 0 00-2 2z" /></svg>
+                      <span className="font-medium">{format}</span>
+                    </div>
+                    <span className="text-sm text-gray-400">
+                      {groupDecks.length} {groupDecks.length === 1 ? 'deck' : 'decks'}
+                    </span>
+                  </button>
                 ))}
               </div>
             )}
