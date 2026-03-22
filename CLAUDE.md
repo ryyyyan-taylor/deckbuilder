@@ -75,7 +75,8 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 
 - `/` — redirects to `/decks` (logged in) or `/login` (not)
 - `/login`, `/signup` — auth pages
-- `/decks` — user deck dashboard with "My Decks" / "Utilities" tabs (protected)
+- `/decks` — user deck dashboard with "My Decks" / "Utilities" tabs; My Decks shows format folders (protected)
+- `/decks?format=X` — filtered deck list for a specific format (protected)
 - `/decks/new` — create new deck (protected)
 - `/decks/:id/edit` — deck editor (protected)
 - `/compare` — deck compare tool, imports 2+ Moxfield decks and shows shared/unique cards (protected)
@@ -95,7 +96,7 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 - Compare page uses same card column layout as deck editor (w-[200px] cards in w-[180px] columns, mt-[-238px] overlap) with sticky preview pane
 - Card type helpers (`getCardType`, `TYPE_ORDER`), `packColumns()`, and layout constants (`COLUMN_WIDTH`, `COLUMN_GAP`) live in `src/lib/cards.ts`, shared by DeckSection and ComparePage
 - Column packing: `packColumns(groups, maxColumns)` only combines type groups into shared columns when they would overflow the container width. If all groups fit, each gets its own column in TYPE_ORDER (no packing). `useMaxColumns` hook measures container width via ResizeObserver and recomputes on resize
-- `/decks` page has tabbed layout: "My Decks" tab (default) and "Utilities" tab with link to Compare tool
+- `/decks` page has tabbed layout: "My Decks" tab (default) and "Utilities" tab with link to Compare tool. My Decks groups decks into format folders; clicking a folder navigates to `?format=X` showing filtered list with back button
 - Moxfield import endpoint returns `name` field (deck name from Moxfield) in the response JSON
 - Suggestions & Results: format-aware header buttons in deck editor — Commander → "Suggestions" (EDHREC), cEDH → "Results" (EDHTop16), Duel Commander → "Results" (MTGTop8). Buttons only show when commander card exists
 - External data cached server-side in Supabase: edhrec_cache (24h TTL), tournament_cache (6h TTL, keyed by commander_name+source)
