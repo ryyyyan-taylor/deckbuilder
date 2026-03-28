@@ -1,29 +1,32 @@
-import { useRef, useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback } from 'react'
 import { COLUMN_WIDTH, COLUMN_GAP } from '../lib/cards'
 
 /**
  * Measures a container element and returns how many card columns fit.
- * Updates on window resize via ResizeObserver.
+ * Uses a callback ref so the observer is set up when the element actually
+ * mounts (not just on component mount, which may precede the element).
+ * Updates on resize via ResizeObserver.
  */
 export function useMaxColumns() {
-  const ref = useRef<HTMLDivElement>(null)
+  const [element, setElement] = useState<HTMLDivElement | null>(null)
   const [maxColumns, setMaxColumns] = useState(Infinity)
 
-  const measure = useCallback(() => {
-    if (!ref.current) return
-    const width = ref.current.clientWidth
-    // First column needs COLUMN_WIDTH, each additional needs COLUMN_GAP + COLUMN_WIDTH
-    const cols = Math.max(1, Math.floor((width + COLUMN_GAP) / (COLUMN_WIDTH + COLUMN_GAP)))
-    setMaxColumns(cols)
+  const ref = useCallback((node: HTMLDivElement | null) => {
+    setElement(node)
   }, [])
 
   useEffect(() => {
-    if (!ref.current) return
+    if (!element) return
+    const measure = () => {
+      const width = element.clientWidth
+      const cols = Math.max(1, Math.floor((width + COLUMN_GAP) / (COLUMN_WIDTH + COLUMN_GAP)))
+      setMaxColumns(cols)
+    }
     const observer = new ResizeObserver(measure)
-    observer.observe(ref.current)
+    observer.observe(element)
     measure()
     return () => observer.disconnect()
-  }, [measure])
+  }, [element])
 
   return { ref, maxColumns }
 }

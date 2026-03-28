@@ -86,8 +86,6 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
     .filter((t) => grouped.has(t))
     .map((t) => ({ type: t, cards: sortCards(grouped.get(t)!, sortBy) }))
 
-  console.log('[DeckSection]', section, 'groups:', sortedGroups.length, 'maxColumns:', maxColumns, 'types:', sortedGroups.map(g => `${g.type}(${g.cards.length})`))
-
   return (
     <div className="rounded border p-4 border-gray-700 bg-gray-800/50">
       <h3 className="text-sm font-semibold text-gray-300 mb-3">
