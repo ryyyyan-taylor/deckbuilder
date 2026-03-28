@@ -1,5 +1,15 @@
 # MTG Deck Builder
 
+## Memory & Session Notes
+
+On every conversation start:
+- Read `/home/rt/.claude/projects/-home-rt-Code-deckbuilder/memory/MEMORY.md` and any referenced session files that seem relevant to the current task.
+
+After any meaningful changes (new features, bug fixes, architectural decisions, lessons learned):
+- Update or create the appropriate memory file(s) in `/home/rt/.claude/projects/-home-rt-Code-deckbuilder/memory/`
+- Create a session notes file named `session_YYYY-MM-DD.md` (use today's date) summarizing what was done
+- Add a pointer to the session file in `MEMORY.md` under the Sessions section
+
 ## Project Overview
 
 A Moxfield-inspired MTG deck hosting site. Users create accounts, build/save decks, search cards via Scryfall, and manage decks with click-to-expand cards and right-click context menus organized by section.

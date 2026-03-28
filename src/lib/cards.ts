@@ -20,10 +20,24 @@ function groupHeight(cardCount: number): number {
 export const COLUMN_WIDTH = 180
 export const COLUMN_GAP = 40
 
+// Priority merge pairs: try these in order when columns overflow, only if it saves height
+const MERGE_PRIORITIES: [string, string][] = [
+  ['Artifact', 'Enchantment'],
+  ['Instant', 'Sorcery'],
+]
+
+function colHeight(col: TypeGroup[]): number {
+  return col.reduce((h, g, i) => h + (i > 0 ? GROUP_GAP : 0) + groupHeight(g.cards.length), 0)
+}
+
 /**
  * Pack type groups into columns to fit within maxColumns.
  * Only packs when the number of groups exceeds maxColumns;
  * otherwise each group gets its own column in TYPE_ORDER.
+ *
+ * When packing is needed, first tries priority merges (Artifact+Enchantment,
+ * then Instant+Sorcery) — but only if the merged height ≤ the current tallest
+ * column (i.e. it saves height). Falls back to bin-packing for any remainder.
  */
 export function packColumns<T extends TypeGroup>(groups: T[], maxColumns: number): T[][] {
   if (groups.length === 0) return []
@@ -33,45 +47,67 @@ export function packColumns<T extends TypeGroup>(groups: T[], maxColumns: number
     return groups.map((g) => [g])
   }
 
-  // Height target: the tallest single group
-  const tallest = Math.max(...groups.map((g) => groupHeight(g.cards.length)))
+  // Start with each group in its own column
+  let columns: T[][] = groups.map((g) => [g])
 
-  const columns: { groups: T[]; height: number }[] = []
+  const height = (col: T[]) => colHeight(col as TypeGroup[])
 
-  for (const group of groups) {
-    const h = groupHeight(group.cards.length)
+  // Try priority merges first, only when the combined height doesn't exceed the current max
+  for (const [typeA, typeB] of MERGE_PRIORITIES) {
+    if (columns.length <= maxColumns) break
 
-    // Try to fit into an existing column (shortest first) without exceeding tallest
-    let bestIdx = -1
-    let bestHeight = Infinity
+    const idxA = columns.findIndex((col) => col.some((g) => g.type === typeA))
+    const idxB = columns.findIndex((col) => col.some((g) => g.type === typeB))
+    if (idxA === -1 || idxB === -1) continue
 
-    for (let i = 0; i < columns.length; i++) {
-      const newHeight = columns[i].height + GROUP_GAP + h
-      if (newHeight <= tallest + GROUP_GAP && columns[i].height < bestHeight) {
-        bestHeight = columns[i].height
-        bestIdx = i
+    const maxHeight = Math.max(...columns.map(height))
+    const mergedHeight = height(columns[idxA]) + GROUP_GAP + height(columns[idxB])
+    if (mergedHeight > maxHeight) continue // would increase height — skip
+
+    // Merge, preserving TYPE_ORDER within the combined column
+    const merged = [...columns[idxA], ...columns[idxB]].sort(
+      (a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)
+    ) as T[]
+    const removeIdx = idxA < idxB ? idxB : idxA
+    const keepIdx = idxA < idxB ? idxA : idxB
+    columns[keepIdx] = merged
+    columns.splice(removeIdx, 1)
+  }
+
+  // If still over maxColumns, fall back to bin-packing (shortest column first)
+  if (columns.length > maxColumns) {
+    const allGroups = columns.flat() as T[]
+    const tallest = Math.max(...allGroups.map((g) => groupHeight(g.cards.length)))
+    columns = []
+
+    for (const group of allGroups) {
+      const h = groupHeight(group.cards.length)
+      let bestIdx = -1
+      let bestHeight = Infinity
+
+      for (let i = 0; i < columns.length; i++) {
+        const newHeight = height(columns[i]) + GROUP_GAP + h
+        if (newHeight <= tallest + GROUP_GAP && height(columns[i]) < bestHeight) {
+          bestHeight = height(columns[i])
+          bestIdx = i
+        }
       }
-    }
 
-    if (bestIdx >= 0 && columns.length >= maxColumns) {
-      // Only pack into existing column when we've hit the column limit
-      columns[bestIdx].groups.push(group)
-      columns[bestIdx].height += GROUP_GAP + h
-    } else if (columns.length < maxColumns) {
-      // Still have room for a new column
-      columns.push({ groups: [group], height: h })
-    } else {
-      // No room for new column and nothing fits — pack into shortest column anyway
-      let shortestIdx = 0
-      for (let i = 1; i < columns.length; i++) {
-        if (columns[i].height < columns[shortestIdx].height) shortestIdx = i
+      if (bestIdx >= 0 && columns.length >= maxColumns) {
+        columns[bestIdx] = [...columns[bestIdx], group]
+      } else if (columns.length < maxColumns) {
+        columns.push([group])
+      } else {
+        let shortestIdx = 0
+        for (let i = 1; i < columns.length; i++) {
+          if (height(columns[i]) < height(columns[shortestIdx])) shortestIdx = i
+        }
+        columns[shortestIdx] = [...columns[shortestIdx], group]
       }
-      columns[shortestIdx].groups.push(group)
-      columns[shortestIdx].height += GROUP_GAP + h
     }
   }
 
-  return columns.map((c) => c.groups)
+  return columns
 }
 
 export function commanderToSlug(name: string): string {
