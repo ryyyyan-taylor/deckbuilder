@@ -1,81 +1,73 @@
+<img src="public/favicon.svg" width="48" height="48" align="left" style="margin-right: 12px">
+
 # MTG Deck Builder
 
-A Moxfield-inspired Magic: The Gathering deck hosting site. Build, save, and share decks with drag-and-drop organization by section.
+A Moxfield-inspired Magic: The Gathering deck hosting site. Build and share decks with a visual card layout, Scryfall-powered card search, and tools for competitive and casual play.
 
-## Tech Stack
+**Live at [deckbuilder.ryantaylor.tech](https://deckbuilder.ryantaylor.tech)**
 
-- **React** + **Vite** + **TypeScript** — frontend
-- **Tailwind CSS v4** — styling
-- **dnd-kit** — drag-and-drop between deck sections
-- **Supabase** — PostgreSQL database + authentication
-- **Vercel** — hosting + serverless API routes
-- **Scryfall** — card data and images
+---
 
-## Getting Started
+## Features
 
-### Prerequisites
+### Deck Building
+- Search across ~100k Magic cards powered by the Scryfall database
+- Organize cards into sections: Commander, Mainboard, Sideboard, and more
+- Cards displayed in stacked columns grouped by type (Creatures, Instants, Sorceries, Lands, etc.)
+- Intelligent column layout — groups are packed to fit the available width, with priority merges for Artifact+Enchantment and Instant+Sorcery
+- Click any card to expand it and adjust quantity; right-click to send it to another section
+- Inline card preview pane that follows your cursor
 
-- Node.js
-- A [Supabase](https://supabase.com) project
-- [Vercel CLI](https://vercel.com/docs/cli) (for local API route development)
+### Format Support
+- Supports Commander, cEDH, Duel Commander, Standard, Modern, Legacy, and more
+- Formats with a Commander section get Commander + Mainboard + Sideboard by default
 
-### Setup
+### Moxfield Import
+- Paste a Moxfield deck URL to import an entire deck in one click
+- Cards are resolved against the local Scryfall cache with live API fallback for misses
+- Deck name is imported automatically
 
-1. Clone the repo and install dependencies:
-   ```bash
-   git clone https://github.com/your-user/deckbuilder.git
-   cd deckbuilder
-   npm install
-   ```
+### Deck Compare
+- Import 2 or more Moxfield decks and compare them side-by-side
+- See cards shared across all decks and cards unique to each, grouped by type
+- Useful for comparing commander lists or finding overlap between builds
 
-2. Create `.env.local` with your Supabase credentials:
-   ```
-   VITE_SUPABASE_URL=https://your-project.supabase.co
-   VITE_SUPABASE_ANON_KEY=your-anon-key
-   SUPABASE_SERVICE_ROLE_KEY=your-service-role-key
-   ```
+### Suggestions & Tournament Results
+- **Commander** decks get EDHREC card suggestions with inclusion percentages
+- **cEDH** decks surface recent EDHTop16 tournament top-8 results
+- **Duel Commander** decks surface recent MTGTop8 results
+- All external data is cached server-side (EDHREC: 24h, tournament data: 6h)
 
-3. Run the database migration in Supabase SQL Editor:
-   ```
-   supabase/migrations/001_initial_schema.sql
-   ```
+### Sharing & Discovery
+- Public deck URLs shareable without an account (`/deck/:id`)
+- My Decks page groups your decks by format into collapsible folders
 
-4. Seed the card database from Scryfall (~100k cards):
-   ```bash
-   npx tsx scripts/seed-cards.ts
-   ```
+---
 
-5. Start the dev server:
-   ```bash
-   npm run dev        # frontend only
-   vercel dev         # frontend + API routes
-   ```
+## Technical Details
 
-## Project Structure
+### Stack
+- **React + Vite + TypeScript** — frontend SPA
+- **Tailwind CSS v4** — utility-first styling
+- **Supabase** — PostgreSQL database + row-level security + auth
+- **Vercel** — hosting + serverless API routes (no separate server process)
+- **Scryfall API** — card search, card data, and card images (served directly from CDN per ToS)
 
-```
-src/
-  components/
-    auth/          # login, signup
-    cards/         # card search, preview
-    deck/          # deck page, sections, draggable cards
-  hooks/           # useAuth, useDeck, useDragAndDrop
-  lib/             # Supabase client, Scryfall helpers
-api/               # Vercel serverless functions
-  cards/
-    search.ts      # GET /api/cards/search?q=<query>
-    [scryfall_id].ts  # GET /api/cards/[scryfall_id]
-  health.ts        # GET /api/health
-scripts/
-  seed-cards.ts    # Scryfall bulk data seeder
-supabase/
-  migrations/      # SQL schema migrations
-```
+### Architecture
+- Serverless API routes in `api/` handle card search, Moxfield import, EDHREC suggestions, and tournament scraping
+- Cards table seeded from Scryfall bulk data (~100k English, non-digital cards with images); live API fallback on cache miss
+- External data (EDHREC, EDHTop16, MTGTop8) cached in Supabase to avoid hammering third-party APIs
+- No card image proxying — all images load directly from `cards.scryfall.io`
 
-## API Routes
+### Column Layout Algorithm
+Cards are rendered in stacked columns (200px cards in 180px columns with 238px overlap). A `packColumns()` function determines how many type groups fit in the available container width, with a priority-based merge strategy: Artifact+Enchantment and Instant+Sorcery are considered for combining first (only if the merged column doesn't exceed the current tallest), falling back to general bin-packing. A `ResizeObserver`-based hook recalculates column count on container resize.
 
-| Route | Description |
+### Data Sources
+| Source | Usage |
 |---|---|
-| `GET /api/cards/search?q=<query>` | Search cards by name (cache-first, Scryfall fallback) |
-| `GET /api/cards/[scryfall_id]` | Lookup a single card by Scryfall ID |
-| `GET /api/health` | Health check endpoint |
+| Scryfall Bulk Data | Card database seed (~100k cards) |
+| Scryfall API | Live card lookup fallback + import resolution |
+| Moxfield API | Deck import (server-side fetch) |
+| EDHREC JSON API | Commander card suggestions |
+| EDHTop16 GraphQL API | cEDH tournament results |
+| MTGTop8 (scraped) | Duel Commander tournament results |
