@@ -84,7 +84,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .single();
 
     return res.status(200).json({ data: inserted ?? row, source: "scryfall" });
-  } catch (err) {
+  } catch {
     return res.status(500).json({ error: "Failed to fetch from Scryfall" });
   }
 }

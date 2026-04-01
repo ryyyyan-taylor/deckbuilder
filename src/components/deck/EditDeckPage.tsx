@@ -90,29 +90,28 @@ export function EditDeckPage() {
     void updateSections(newOrder)
   }
 
-  const loadDeckCards = useCallback(async () => {
+  const loadDeckCards = async () => {
     if (!id) return
     const cards = await fetchDeckCards(id)
     setDeckCards(cards)
-  }, [id])
+  }
 
   useEffect(() => {
-    if (id) {
-      fetchDeck(id).then((d) => {
-        if (d) {
-          setDeck(d)
-          document.title = `${d.name} — Deck Builder`
-          // Ensure Stats section exists
-          if (!(d.sections ?? []).includes(STATS_SECTION)) {
-            const current = d.sections ?? ['Mainboard']
-            updateDeck(id, { sections: [...current, STATS_SECTION] }).then((result) => {
-              if (result) setDeck(result)
-            })
-          }
+    if (!id) return
+    fetchDeck(id).then((d) => {
+      if (d) {
+        setDeck(d)
+        document.title = `${d.name} — Deck Builder`
+        // Ensure Stats section exists
+        if (!(d.sections ?? []).includes(STATS_SECTION)) {
+          const current = d.sections ?? ['Mainboard']
+          updateDeck(id, { sections: [...current, STATS_SECTION] }).then((result) => {
+            if (result) setDeck(result)
+          })
         }
-      })
-      loadDeckCards()
-    }
+      }
+    })
+    fetchDeckCards(id).then(setDeckCards)
   }, [id])
 
   const updateSections = async (newSections: string[]) => {

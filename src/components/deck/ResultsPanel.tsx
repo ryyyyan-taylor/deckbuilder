@@ -25,8 +25,6 @@ export function ResultsPanel({ commanderName, source, onClose }: ResultsPanelPro
   const [fallbackUrl, setFallbackUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    setLoading(true)
-    setError(null)
     fetch(`/api/results/${source}?commander=${encodeURIComponent(commanderName)}`)
       .then(async (res) => {
         const data = await res.json().catch(() => ({}))
