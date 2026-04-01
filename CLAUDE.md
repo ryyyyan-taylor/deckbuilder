@@ -27,7 +27,7 @@ A Moxfield-inspired MTG deck hosting site. Users create accounts, build/save dec
 src/
   components/
     deck/       # EditDeckPage, ViewDeckPage, DeckSection, DeckCardItem, ComparePage,
-                # SuggestionsPanel, ResultsPanel
+                # SuggestionsPanel, ResultsPanel, StatsPanel
     cards/      # CardSearch, CardPreview
     auth/       # LoginForm, SignupForm
     Toast.tsx   # Lightweight toast notifications (auto-dismiss)
@@ -105,7 +105,10 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 - Deck compare tool: `/compare` page imports N Moxfield decks (2+ URLs, dynamically add/remove) via existing `/api/import/moxfield`, compares cards by name (case-insensitive), displays Shared (in all decks) / Unique to each deck, grouped by card type
 - Compare page uses same card column layout as deck editor (w-[200px] cards in w-[180px] columns, mt-[-238px] overlap) with sticky preview pane
 - Card type helpers (`getCardType`, `TYPE_ORDER`), `packColumns()`, and layout constants (`COLUMN_WIDTH`, `COLUMN_GAP`) live in `src/lib/cards.ts`, shared by DeckSection and ComparePage
-- Column packing: `packColumns(groups, maxColumns)` only combines type groups into shared columns when they would overflow the container width. If all groups fit, each gets its own column in TYPE_ORDER (no packing). `useMaxColumns` hook measures container width via ResizeObserver and recomputes on resize
+- Column packing: `packColumns(groups, maxColumns)` only combines type groups into shared columns when they would overflow the container width. If all groups fit, each gets its own column in TYPE_ORDER (no packing). When packing is needed: priority merges (Artifact+Enchantment, Instant+Sorcery) first, then First Fit Decreasing bin-packing (tallest groups first so anchors like Creatures/Lands claim their own columns). TYPE_ORDER restored within columns and left-to-right after packing. `useMaxColumns` hook measures container width via ResizeObserver and recomputes on resize
+- Stats section: `"Stats"` stored as sentinel string in `deck.sections` (no schema change). Added silently on first deck load. `PROTECTED_SECTIONS = ['Mainboard', 'Stats']` — no rename/delete. `cardSections = sections.filter(s => s !== 'Stats')` used everywhere cards are involved. StatsPanel renders mana curve (Recharts BarChart), color pip bars, card type breakdown
+- Section reordering: pills in section bar are draggable via `@dnd-kit/sortable`, `PointerSensor` with 5px distance constraint. × button uses `onPointerDown` stopPropagation to prevent drag on delete click. Order persists to Supabase via `updateSections`
+- CI: GitHub Actions at `.github/workflows/ci.yml` — runs lint + typecheck + build on push/PR to main. Uses `actions/checkout@v6` + `actions/setup-node@v6` (Node 24 native). Vercel handles CD automatically via GitHub integration
 - `/decks` page has tabbed layout: "My Decks" tab (default) and "Utilities" tab with link to Compare tool. My Decks groups decks into format folders; clicking a folder navigates to `?format=X` showing filtered list with back button
 - Moxfield import endpoint returns `name` field (deck name from Moxfield) in the response JSON
 - Suggestions & Results: format-aware header buttons in deck editor — Commander → "Suggestions" (EDHREC), cEDH → "Results" (EDHTop16), Duel Commander → "Results" (MTGTop8). Buttons only show when commander card exists
@@ -117,4 +120,4 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 
 ## MVP Progress
 
-See `checklist.md` for current status. MVP complete and deployed. Moxfield import, deck compare, and suggestions/tournament results features implemented.
+See `checklist.md` for current status. MVP complete and deployed. Post-MVP additions: Stats section, section drag-and-drop reordering, CI pipeline, FFD bin-packing improvement.

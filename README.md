@@ -4,7 +4,7 @@
 
 A Moxfield-inspired Magic: The Gathering deck hosting site. Build and share decks with a visual card layout, Scryfall-powered card search, and tools for competitive and casual play.
 
-**Live at [deckbuilder.ryantaylor.tech](https://deckbuilder.ryantaylor.tech)**
+**Live at [deckbuilder.ryantaylor.tech](https://deckbuilder.ryantaylor.tech)** &nbsp; ![CI](https://github.com/ryyyyan-taylor/deckbuilder/actions/workflows/ci.yml/badge.svg)
 
 ---
 
@@ -17,6 +17,8 @@ A Moxfield-inspired Magic: The Gathering deck hosting site. Build and share deck
 - Intelligent column layout — groups are packed to fit the available width, with priority merges for Artifact+Enchantment and Instant+Sorcery
 - Click any card to expand it and adjust quantity; right-click to send it to another section
 - Inline card preview pane that follows your cursor
+- **Stats section** — mana curve bar chart, color pip distribution, and card type breakdown; always present alongside card sections
+- Drag-and-drop section reordering — all sections (including Stats) can be repositioned; order persists per deck
 
 ### Format Support
 - Supports Commander, cEDH, Duel Commander, Standard, Modern, Legacy, and more
@@ -68,7 +70,7 @@ A Moxfield-inspired Magic: The Gathering deck hosting site. Build and share deck
 - No card image proxying — all images load directly from `cards.scryfall.io`
 
 ### Column Layout Algorithm
-Cards are rendered in stacked columns (200px cards in 180px columns with 238px overlap). A `packColumns()` function determines how many type groups fit in the available container width, with a priority-based merge strategy: Artifact+Enchantment and Instant+Sorcery are considered for combining first (only if the merged column doesn't exceed the current tallest), falling back to general bin-packing. A `ResizeObserver`-based hook recalculates column count on container resize.
+Cards are rendered in stacked columns (200px cards in 180px columns with 238px overlap). A `packColumns()` function determines how many type groups fit in the available container width, with a priority-based merge strategy: Artifact+Enchantment and Instant+Sorcery are considered for combining first (only if the merged column doesn't exceed the current tallest), then falling back to First Fit Decreasing bin-packing — tallest groups (e.g. Creatures, Lands) claim columns first so shorter groups fill the remaining space rather than fragmenting across columns. A `ResizeObserver`-based hook recalculates column count on container resize.
 
 ### Data Sources
 | Source | Usage |
