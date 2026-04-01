@@ -6,6 +6,7 @@ import {
 } from '@dnd-kit/core'
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
+import { supabase } from '../../lib/supabase'
 import { useDeck } from '../../hooks/useDeck'
 import type { Deck, DeckCard, DeckInput, Card } from '../../hooks/useDeck'
 import { DeckForm } from './DeckForm'
@@ -51,14 +52,16 @@ export function EditDeckPage() {
   const [addingSectionName, setAddingSectionName] = useState<string | null>(null)
   const [renamingSection, setRenamingSection] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
-  const [showMenu, setShowMenu] = useState(false)
   const [showImportModal, setShowImportModal] = useState(false)
+  const [bulkEditMode, setBulkEditMode] = useState(false)
+  const [bulkEditText, setBulkEditText] = useState<Record<string, string>>({})
+  const [bulkEditSaving, setBulkEditSaving] = useState(false)
+  const [bulkEditErrors, setBulkEditErrors] = useState<string[]>([])
   const [importUrl, setImportUrl] = useState('')
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
   const renameInputRef = useRef<HTMLInputElement>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
-  const menuRef = useRef<HTMLDivElement>(null)
   const [showSuggestions, setShowSuggestions] = useState(false)
   const [showResults, setShowResults] = useState(false)
   const [toasts, setToasts] = useState<ToastItem[]>([])
@@ -75,6 +78,10 @@ export function EditDeckPage() {
 
   const sections = deck?.sections ?? ['Mainboard', STATS_SECTION]
   const cardSections = sections.filter((s) => s !== STATS_SECTION)
+  const commanderFormats = ['Commander', 'cEDH', 'Duel Commander']
+  const protectedSections = commanderFormats.includes(deck?.format ?? '')
+    ? [...PROTECTED_SECTIONS, 'Commander']
+    : PROTECTED_SECTIONS
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -125,7 +132,7 @@ export function EditDeckPage() {
 
   const handleAddSection = async () => {
     const name = addingSectionName?.trim()
-    if (!name || sections.includes(name) || PROTECTED_SECTIONS.includes(name)) {
+    if (!name || sections.includes(name) || protectedSections.includes(name)) {
       setAddingSectionName(null)
       return
     }
@@ -152,7 +159,7 @@ export function EditDeckPage() {
   }
 
   const handleRemoveSection = async (sectionName: string) => {
-    if (PROTECTED_SECTIONS.includes(sectionName) || !id) return
+    if (protectedSections.includes(sectionName) || !id) return
     const cardsInSection = deckCards.filter((dc) => dc.section === sectionName)
     const message = cardsInSection.length > 0
       ? `Delete "${sectionName}"? Its ${cardsInSection.length} card(s) will be moved to Mainboard.`
@@ -241,18 +248,6 @@ export function EditDeckPage() {
     }
   }
 
-  // Close menu on click outside
-  useEffect(() => {
-    if (!showMenu) return
-    const handleClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setShowMenu(false)
-      }
-    }
-    document.addEventListener('mousedown', handleClick)
-    return () => document.removeEventListener('mousedown', handleClick)
-  }, [showMenu])
-
   const handleImport = async () => {
     if (!id || !importUrl.trim()) return
     setImportLoading(true)
@@ -294,6 +289,129 @@ export function EditDeckPage() {
       setImportError('Failed to import deck')
     }
     setImportLoading(false)
+  }
+
+  const enterBulkEdit = () => {
+    const text: Record<string, string> = {}
+    for (const section of cardSections) {
+      const sectionCards = (cardsBySection[section] ?? [])
+        .slice()
+        .sort((a, b) => (a.card?.name ?? '').localeCompare(b.card?.name ?? ''))
+      text[section] = sectionCards
+        .map((dc) => `${dc.quantity} ${dc.card?.name ?? ''}`)
+        .join('\n')
+    }
+    setBulkEditText(text)
+    setBulkEditErrors([])
+    setBulkEditMode(true)
+  }
+
+  const handleBulkEditSave = async () => {
+    if (!id) return
+    setBulkEditSaving(true)
+    setBulkEditErrors([])
+
+    // Parse all section texts
+    const parsedSections = new Map<string, { name: string; quantity: number }[]>()
+    const namesToLookup = new Set<string>()
+
+    for (const section of cardSections) {
+      const entries: { name: string; quantity: number }[] = []
+      for (const line of (bulkEditText[section] ?? '').split('\n')) {
+        const trimmed = line.trim()
+        if (!trimmed) continue
+        const match = trimmed.match(/^(\d+)\s+(.+)$/)
+        if (match) {
+          entries.push({ quantity: parseInt(match[1], 10), name: match[2].trim() })
+        } else {
+          entries.push({ quantity: 1, name: trimmed })
+        }
+      }
+      // Deduplicate by name (sum quantities)
+      const deduped = new Map<string, { name: string; quantity: number }>()
+      for (const entry of entries) {
+        const key = entry.name.toLowerCase()
+        if (deduped.has(key)) {
+          deduped.get(key)!.quantity += entry.quantity
+        } else {
+          deduped.set(key, { ...entry })
+        }
+      }
+      parsedSections.set(section, [...deduped.values()])
+
+      const currentCards = cardsBySection[section] ?? []
+      for (const { name } of deduped.values()) {
+        const exists = currentCards.some((dc) => dc.card?.name?.toLowerCase() === name.toLowerCase())
+        if (!exists) namesToLookup.add(name)
+      }
+    }
+
+    // Look up new card names in the cards table
+    const cardLookup = new Map<string, string>() // name lower → card id
+    const nameArray = [...namesToLookup]
+    if (nameArray.length > 0) {
+      const { data: foundCards } = await supabase
+        .from('cards')
+        .select('id, name')
+        .in('name', nameArray)
+      for (const card of foundCards ?? []) {
+        cardLookup.set((card.name as string).toLowerCase(), card.id as string)
+      }
+    }
+
+    // Build diff
+    const removes: string[] = []
+    const updates: { deckCardId: string; quantity: number }[] = []
+    const adds: { card_id: string; section: string; quantity: number }[] = []
+    const errors: string[] = []
+
+    for (const section of cardSections) {
+      const newEntries = parsedSections.get(section) ?? []
+      const currentCards = cardsBySection[section] ?? []
+
+      const currentByNameLower = new Map<string, DeckCard>()
+      for (const dc of currentCards) {
+        if (dc.card?.name) currentByNameLower.set(dc.card.name.toLowerCase(), dc)
+      }
+
+      const newByNameLower = new Map<string, { name: string; quantity: number }>()
+      for (const entry of newEntries) {
+        newByNameLower.set(entry.name.toLowerCase(), entry)
+      }
+
+      for (const [nameLower, dc] of currentByNameLower) {
+        if (!newByNameLower.has(nameLower)) removes.push(dc.id)
+      }
+
+      for (const [nameLower, entry] of newByNameLower) {
+        if (currentByNameLower.has(nameLower)) {
+          const dc = currentByNameLower.get(nameLower)!
+          if (dc.quantity !== entry.quantity) updates.push({ deckCardId: dc.id, quantity: entry.quantity })
+        } else {
+          const cardId = cardLookup.get(nameLower)
+          if (!cardId) {
+            errors.push(`"${entry.name}" not found in card database`)
+          } else {
+            adds.push({ card_id: cardId, section, quantity: entry.quantity })
+          }
+        }
+      }
+    }
+
+    if (errors.length > 0) {
+      setBulkEditErrors(errors)
+      setBulkEditSaving(false)
+      return
+    }
+
+    for (const deckCardId of removes) await removeDeckCard(deckCardId)
+    for (const { deckCardId, quantity } of updates) await updateDeckCardQuantity(deckCardId, quantity)
+    if (adds.length > 0) await bulkAddCards(id, adds)
+
+    await loadDeckCards()
+    setBulkEditMode(false)
+    addToast('Bulk edit saved')
+    setBulkEditSaving(false)
   }
 
   // Focus inputs when they appear
@@ -389,60 +507,48 @@ export function EditDeckPage() {
                 Results
               </button>
             )}
-            <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
-              <button
-                onClick={() => setSortBy('name')}
-                className={`px-3 py-1.5 rounded-l ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-              >
-                Name
-              </button>
-              <button
-                onClick={() => setSortBy('cmc')}
-                className={`px-3 py-1.5 rounded-r ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-              >
-                Mana Value
-              </button>
-            </div>
-            <div className="relative" ref={menuRef}>
-              <button
-                onClick={() => setShowMenu(!showMenu)}
-                className="px-3 py-2 bg-gray-700 hover:bg-gray-600 rounded text-sm font-bold tracking-wider"
-                title="Menu"
-              >
-                &#x2026;
-              </button>
-              {showMenu && (
-                <div className="absolute right-0 mt-1 w-48 bg-gray-800 border border-gray-700 rounded shadow-lg z-50">
-                  <a
-                    href={`/deck/${id}`}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="block px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
-                    onClick={() => setShowMenu(false)}
-                  >
-                    Share
-                  </a>
-                  <button
-                    onClick={() => {
-                      setShowEditForm(!showEditForm)
-                      setShowMenu(false)
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
-                  >
-                    Edit Details
-                  </button>
-                  <button
-                    onClick={() => {
-                      setShowImportModal(true)
-                      setShowMenu(false)
-                    }}
-                    className="w-full text-left px-4 py-2 text-sm text-gray-300 hover:bg-gray-700 hover:text-white"
-                  >
-                    Import from Moxfield
-                  </button>
-                </div>
-              )}
-            </div>
+            {!bulkEditMode && (
+              <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
+                <button
+                  onClick={() => setSortBy('name')}
+                  className={`px-3 py-1.5 rounded-l ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                >
+                  Name
+                </button>
+                <button
+                  onClick={() => setSortBy('cmc')}
+                  className={`px-3 py-1.5 rounded-r ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                >
+                  Mana Value
+                </button>
+              </div>
+            )}
+            <a
+              href={`/deck/${id}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+            >
+              Share
+            </a>
+            <button
+              onClick={() => setShowEditForm(!showEditForm)}
+              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+            >
+              Edit Details
+            </button>
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+            >
+              Import
+            </button>
+            <button
+              onClick={bulkEditMode ? () => { setBulkEditMode(false); setBulkEditErrors([]) } : enterBulkEdit}
+              className={`px-3 py-1.5 rounded text-sm ${bulkEditMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+            >
+              {bulkEditMode ? 'Exit Bulk Edit' : 'Bulk Edit'}
+            </button>
           </div>
         </div>
 
@@ -480,13 +586,13 @@ export function EditDeckPage() {
                     <span
                       className="flex items-center px-3 py-1 bg-gray-800 border border-gray-700 rounded text-sm cursor-grab active:cursor-grabbing hover:border-gray-500 select-none"
                       onDoubleClick={() => {
-                        if (PROTECTED_SECTIONS.includes(s)) return
+                        if (protectedSections.includes(s)) return
                         setRenamingSection(s)
                         setRenameValue(s)
                       }}
                     >
                       {s}
-                      {!PROTECTED_SECTIONS.includes(s) && (
+                      {!protectedSections.includes(s) && (
                         <button
                           onPointerDown={(e) => e.stopPropagation()}
                           onClick={(e) => {
@@ -544,6 +650,47 @@ export function EditDeckPage() {
         <div className="flex gap-6">
           {/* Deck sections — full width */}
           <div className="flex-1 min-w-0">
+            {bulkEditMode ? (
+              <div className="space-y-4">
+                {bulkEditErrors.length > 0 && (
+                  <div className="bg-red-900/30 border border-red-700 rounded p-3">
+                    <p className="text-red-400 text-sm font-medium mb-1">Some cards couldn't be found:</p>
+                    <ul className="text-red-400 text-sm list-disc list-inside">
+                      {bulkEditErrors.map((e, i) => <li key={i}>{e}</li>)}
+                    </ul>
+                  </div>
+                )}
+                {cardSections.map((section) => (
+                  <div key={section} className="rounded border border-gray-700 bg-gray-800/50 p-4">
+                    <h3 className="text-sm font-semibold text-gray-300 mb-3">{section}</h3>
+                    <textarea
+                      value={bulkEditText[section] ?? ''}
+                      onChange={(e) => setBulkEditText((prev) => ({ ...prev, [section]: e.target.value }))}
+                      className="w-full h-48 px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm font-mono focus:outline-none focus:border-blue-500 resize-y"
+                      placeholder={'1 Card Name\n4 Another Card'}
+                      spellCheck={false}
+                      disabled={bulkEditSaving}
+                    />
+                  </div>
+                ))}
+                <div className="flex gap-3 pb-4">
+                  <button
+                    onClick={handleBulkEditSave}
+                    disabled={bulkEditSaving}
+                    className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm font-medium"
+                  >
+                    {bulkEditSaving ? 'Saving...' : 'Save'}
+                  </button>
+                  <button
+                    onClick={() => { setBulkEditMode(false); setBulkEditErrors([]) }}
+                    disabled={bulkEditSaving}
+                    className="px-4 py-2 text-sm text-gray-400 hover:text-gray-300 disabled:opacity-50"
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
             <div className="space-y-4">
               {sections.map((s) =>
                 s === STATS_SECTION ? (
@@ -565,6 +712,7 @@ export function EditDeckPage() {
                 )
               )}
             </div>
+            )}
           </div>
 
           {/* Sticky preview panel — far right */}
