@@ -42,6 +42,14 @@ A Moxfield-inspired Magic: The Gathering deck hosting site. Build and share deck
 - Public deck URLs shareable without an account (`/deck/:id`)
 - My Decks page groups your decks by format into collapsible folders
 
+**Example decks (no account required):**
+| Format | Deck |
+|---|---|
+| Casual Commander | [View deck](https://deckbuilder.ryantaylor.tech/deck/35664d7d-7001-42b1-adce-ba3f25adfc8a/) |
+| cEDH | [View deck](https://deckbuilder.ryantaylor.tech/deck/622af3b2-8e86-49dd-a34f-7b6a42162fc9/) |
+| Duel Commander | [View deck](https://deckbuilder.ryantaylor.tech/deck/25e372fc-b098-45e5-a218-8a1f8ddeb84a/) |
+| Modern | [View deck](https://deckbuilder.ryantaylor.tech/deck/95671a75-3c38-49ea-a6d3-13aabfa9e3e3/) |
+
 ---
 
 ## Technical Details
