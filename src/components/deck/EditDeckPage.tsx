@@ -1,15 +1,39 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { useParams, Link } from 'react-router-dom'
+import {
+  DndContext, closestCenter, PointerSensor, useSensor, useSensors,
+  type DragEndEvent,
+} from '@dnd-kit/core'
+import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
 import { useDeck } from '../../hooks/useDeck'
 import type { Deck, DeckCard, DeckInput, Card } from '../../hooks/useDeck'
 import { DeckForm } from './DeckForm'
 import { DeckSection } from './DeckSection'
 import type { SortBy } from './DeckSection'
+import { StatsPanel } from './StatsPanel'
 import { CardSearch } from '../cards/CardSearch'
 import { SuggestionsPanel } from './SuggestionsPanel'
 import { ResultsPanel } from './ResultsPanel'
 import { Toast } from '../Toast'
 import type { ToastItem } from '../Toast'
+
+const STATS_SECTION = 'Stats'
+const PROTECTED_SECTIONS = ['Mainboard', STATS_SECTION]
+
+function SortablePill({ id, children }: { id: string; children: React.ReactNode }) {
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
+  return (
+    <div
+      ref={setNodeRef}
+      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
+      {...attributes}
+      {...listeners}
+    >
+      {children}
+    </div>
+  )
+}
 
 export function EditDeckPage() {
   const { id } = useParams<{ id: string }>()
@@ -49,7 +73,22 @@ export function EditDeckPage() {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  const sections = deck?.sections ?? ['Mainboard']
+  const sections = deck?.sections ?? ['Mainboard', STATS_SECTION]
+  const cardSections = sections.filter((s) => s !== STATS_SECTION)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
+  )
+
+  const handleDragEnd = (event: DragEndEvent) => {
+    const { active, over } = event
+    if (!over || active.id === over.id) return
+    const oldIndex = sections.indexOf(active.id as string)
+    const newIndex = sections.indexOf(over.id as string)
+    const newOrder = arrayMove(sections, oldIndex, newIndex)
+    setDeck((prev) => prev ? { ...prev, sections: newOrder } : prev)
+    void updateSections(newOrder)
+  }
 
   const loadDeckCards = useCallback(async () => {
     if (!id) return
@@ -63,6 +102,13 @@ export function EditDeckPage() {
         if (d) {
           setDeck(d)
           document.title = `${d.name} — Deck Builder`
+          // Ensure Stats section exists
+          if (!(d.sections ?? []).includes(STATS_SECTION)) {
+            const current = d.sections ?? ['Mainboard']
+            updateDeck(id, { sections: [...current, STATS_SECTION] }).then((result) => {
+              if (result) setDeck(result)
+            })
+          }
         }
       })
       loadDeckCards()
@@ -77,7 +123,7 @@ export function EditDeckPage() {
 
   const handleAddSection = async () => {
     const name = addingSectionName?.trim()
-    if (!name || sections.includes(name)) {
+    if (!name || sections.includes(name) || PROTECTED_SECTIONS.includes(name)) {
       setAddingSectionName(null)
       return
     }
@@ -104,7 +150,7 @@ export function EditDeckPage() {
   }
 
   const handleRemoveSection = async (sectionName: string) => {
-    if (sectionName === 'Mainboard' || !id) return
+    if (PROTECTED_SECTIONS.includes(sectionName) || !id) return
     const cardsInSection = deckCards.filter((dc) => dc.section === sectionName)
     const message = cardsInSection.length > 0
       ? `Delete "${sectionName}"? Its ${cardsInSection.length} card(s) will be moved to Mainboard.`
@@ -291,17 +337,16 @@ export function EditDeckPage() {
   const resultsSource = isDuelCommander ? 'mtgtop8' as const : 'edhtop16' as const
   const deckCardNames = new Set(deckCards.map((dc) => dc.card?.name?.toLowerCase()).filter(Boolean) as string[])
 
-  const cardsBySection = sections.reduce<Record<string, DeckCard[]>>((acc, s) => {
+  const cardsBySection = cardSections.reduce<Record<string, DeckCard[]>>((acc, s) => {
     acc[s] = deckCards.filter((dc) => dc.section === s)
     return acc
   }, {})
 
-
   const countForSections = (names: string[]) =>
     deckCards.filter((dc) => names.includes(dc.section)).reduce((sum, dc) => sum + dc.quantity, 0)
   const mainDeckCount = countForSections(['Mainboard', 'Commander'])
-  const sideboardCount = sections.includes('Sideboard') ? countForSections(['Sideboard']) : 0
-  const otherSectionNames = sections.filter((s) => !['Mainboard', 'Commander', 'Sideboard'].includes(s))
+  const sideboardCount = cardSections.includes('Sideboard') ? countForSections(['Sideboard']) : 0
+  const otherSectionNames = cardSections.filter((s) => !['Mainboard', 'Commander', 'Sideboard'].includes(s))
   const otherCount = countForSections(otherSectionNames)
 
   return (
@@ -411,79 +456,84 @@ export function EditDeckPage() {
         )}
 
         {/* Section management bar */}
-        <div className="flex flex-wrap items-center gap-2 mb-6">
-          {sections.map((s) => (
-            <div key={s} className="flex items-center">
-              {renamingSection === s ? (
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+          <SortableContext items={sections} strategy={horizontalListSortingStrategy}>
+            <div className="flex flex-wrap items-center gap-2 mb-6">
+              {sections.map((s) => (
+                <SortablePill key={s} id={s}>
+                  {renamingSection === s ? (
+                    <input
+                      ref={renameInputRef}
+                      type="text"
+                      value={renameValue}
+                      onChange={(e) => setRenameValue(e.target.value)}
+                      onKeyDown={(e) => {
+                        if (e.key === 'Enter') handleRenameSection(s)
+                        if (e.key === 'Escape') setRenamingSection(null)
+                      }}
+                      onBlur={() => handleRenameSection(s)}
+                      className="px-3 py-1 bg-gray-700 border border-blue-500 rounded text-sm focus:outline-none"
+                    />
+                  ) : (
+                    <span
+                      className="flex items-center px-3 py-1 bg-gray-800 border border-gray-700 rounded text-sm cursor-grab active:cursor-grabbing hover:border-gray-500 select-none"
+                      onDoubleClick={() => {
+                        if (PROTECTED_SECTIONS.includes(s)) return
+                        setRenamingSection(s)
+                        setRenameValue(s)
+                      }}
+                    >
+                      {s}
+                      {!PROTECTED_SECTIONS.includes(s) && (
+                        <button
+                          onPointerDown={(e) => e.stopPropagation()}
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            handleRemoveSection(s)
+                          }}
+                          className="ml-2 text-gray-500 hover:text-red-400"
+                          title={`Remove ${s}`}
+                        >
+                          &times;
+                        </button>
+                      )}
+                    </span>
+                  )}
+                </SortablePill>
+              ))}
+
+              {addingSectionName !== null ? (
                 <input
-                  ref={renameInputRef}
+                  ref={addInputRef}
                   type="text"
-                  value={renameValue}
-                  onChange={(e) => setRenameValue(e.target.value)}
+                  value={addingSectionName}
+                  onChange={(e) => setAddingSectionName(e.target.value)}
                   onKeyDown={(e) => {
-                    if (e.key === 'Enter') handleRenameSection(s)
-                    if (e.key === 'Escape') setRenamingSection(null)
+                    if (e.key === 'Enter') handleAddSection()
+                    if (e.key === 'Escape') setAddingSectionName(null)
                   }}
-                  onBlur={() => handleRenameSection(s)}
-                  className="px-3 py-1 bg-gray-700 border border-blue-500 rounded text-sm focus:outline-none"
+                  onBlur={handleAddSection}
+                  placeholder="Section name"
+                  className="px-3 py-1 bg-gray-700 border border-blue-500 rounded text-sm focus:outline-none w-36"
                 />
               ) : (
-                <span
-                  className="px-3 py-1 bg-gray-800 border border-gray-700 rounded text-sm cursor-pointer hover:border-gray-500 select-none"
-                  onDoubleClick={() => {
-                    if (s === 'Mainboard') return
-                    setRenamingSection(s)
-                    setRenameValue(s)
-                  }}
+                <button
+                  onClick={() => setAddingSectionName('')}
+                  className="px-3 py-1 border border-dashed border-gray-600 rounded text-sm text-gray-400 hover:text-gray-300 hover:border-gray-500"
                 >
-                  {s}
-                  {s !== 'Mainboard' && (
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation()
-                        handleRemoveSection(s)
-                      }}
-                      className="ml-2 text-gray-500 hover:text-red-400"
-                      title={`Remove ${s}`}
-                    >
-                      &times;
-                    </button>
-                  )}
-                </span>
+                  + Add Section
+                </button>
               )}
             </div>
-          ))}
-
-          {addingSectionName !== null ? (
-            <input
-              ref={addInputRef}
-              type="text"
-              value={addingSectionName}
-              onChange={(e) => setAddingSectionName(e.target.value)}
-              onKeyDown={(e) => {
-                if (e.key === 'Enter') handleAddSection()
-                if (e.key === 'Escape') setAddingSectionName(null)
-              }}
-              onBlur={handleAddSection}
-              placeholder="Section name"
-              className="px-3 py-1 bg-gray-700 border border-blue-500 rounded text-sm focus:outline-none w-36"
-            />
-          ) : (
-            <button
-              onClick={() => setAddingSectionName('')}
-              className="px-3 py-1 border border-dashed border-gray-600 rounded text-sm text-gray-400 hover:text-gray-300 hover:border-gray-500"
-            >
-              + Add Section
-            </button>
-          )}
-        </div>
+          </SortableContext>
+        </DndContext>
 
         {/* Card search */}
         <div className="mb-6">
           <CardSearch
             onAdd={handleAddCard}
-            sections={sections}
-            activeSection={sections.includes('Mainboard') ? 'Mainboard' : sections[0]}
+            sections={cardSections}
+            activeSection={cardSections.includes('Mainboard') ? 'Mainboard' : cardSections[0]}
             onHoverCard={setPreviewCard}
           />
         </div>
@@ -493,21 +543,25 @@ export function EditDeckPage() {
           {/* Deck sections — full width */}
           <div className="flex-1 min-w-0">
             <div className="space-y-4">
-              {sections.map((s) => (
-                <DeckSection
-                  key={s}
-                  section={s}
-                  cards={cardsBySection[s]}
-                  onQuantityChange={handleQuantityChange}
-                  onRemove={handleRemove}
-                  onHoverCard={setPreviewCard}
-                  sortBy={sortBy}
-                  sections={sections}
-                  onSendToSection={handleSendToSection}
-                  onAddToSection={handleAddToSection}
-                  onChangeVersion={handleChangeVersion}
-                />
-              ))}
+              {sections.map((s) =>
+                s === STATS_SECTION ? (
+                  <StatsPanel key={s} deckCards={deckCards} />
+                ) : (
+                  <DeckSection
+                    key={s}
+                    section={s}
+                    cards={cardsBySection[s]}
+                    onQuantityChange={handleQuantityChange}
+                    onRemove={handleRemove}
+                    onHoverCard={setPreviewCard}
+                    sortBy={sortBy}
+                    sections={cardSections}
+                    onSendToSection={handleSendToSection}
+                    onAddToSection={handleAddToSection}
+                    onChangeVersion={handleChangeVersion}
+                  />
+                )
+              )}
             </div>
           </div>
 

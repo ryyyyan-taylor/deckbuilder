@@ -4,7 +4,10 @@ import { useDeck } from '../../hooks/useDeck'
 import type { Deck, DeckCard, Card } from '../../hooks/useDeck'
 import { DeckSection } from './DeckSection'
 import type { SortBy } from './DeckSection'
+import { StatsPanel } from './StatsPanel'
 import { useAuth } from '../../hooks/useAuth'
+
+const STATS_SECTION = 'Stats'
 
 export function ViewDeckPage() {
   const { id } = useParams<{ id: string }>()
@@ -55,7 +58,8 @@ export function ViewDeckPage() {
   }
 
   const sections = deck!.sections ?? ['Mainboard']
-  const cardsBySection = sections.reduce<Record<string, DeckCard[]>>((acc, s) => {
+  const cardSections = sections.filter((s) => s !== STATS_SECTION)
+  const cardsBySection = cardSections.reduce<Record<string, DeckCard[]>>((acc, s) => {
     acc[s] = deckCards.filter((dc) => dc.section === s)
     return acc
   }, {})
@@ -63,8 +67,8 @@ export function ViewDeckPage() {
   const countForSections = (names: string[]) =>
     deckCards.filter((dc) => names.includes(dc.section)).reduce((sum, dc) => sum + dc.quantity, 0)
   const mainDeckCount = countForSections(['Mainboard', 'Commander'])
-  const sideboardCount = sections.includes('Sideboard') ? countForSections(['Sideboard']) : 0
-  const otherSectionNames = sections.filter((s) => !['Mainboard', 'Commander', 'Sideboard'].includes(s))
+  const sideboardCount = cardSections.includes('Sideboard') ? countForSections(['Sideboard']) : 0
+  const otherSectionNames = cardSections.filter((s) => !['Mainboard', 'Commander', 'Sideboard'].includes(s))
   const otherCount = countForSections(otherSectionNames)
   const isOwner = user?.id === deck!.user_id
 
@@ -122,16 +126,20 @@ export function ViewDeckPage() {
         <div className="flex gap-6">
           <div className="flex-1 min-w-0">
             <div className="space-y-4">
-              {sections.map((s) => (
-                <DeckSection
-                  key={s}
-                  section={s}
-                  cards={cardsBySection[s]}
-                  onHoverCard={setPreviewCard}
-                  sortBy={sortBy}
-                  readOnly
-                />
-              ))}
+              {sections.map((s) =>
+                s === STATS_SECTION ? (
+                  <StatsPanel key={s} deckCards={deckCards} />
+                ) : (
+                  <DeckSection
+                    key={s}
+                    section={s}
+                    cards={cardsBySection[s]}
+                    onHoverCard={setPreviewCard}
+                    sortBy={sortBy}
+                    readOnly
+                  />
+                )
+              )}
             </div>
           </div>
 
