@@ -32,9 +32,12 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
 
   const isActive = expanded || !!contextMenu
 
-  // Notify parent when active state changes
+  // Notify parent when active state changes.
+  // onActiveChange is an inline function in DeckSection that changes every render;
+  // omitting it is intentional — we only want this to fire when isActive changes.
   useEffect(() => {
     onActiveChange?.(isActive)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive])
 
   // Close expanded/context menu on click outside or Escape

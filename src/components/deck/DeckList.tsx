@@ -17,6 +17,9 @@ export function DeckList() {
       ? `${formatFilter} Decks — Deck Builder`
       : 'My Decks — Deck Builder'
     fetchDecks()
+  // fetchDecks is not memoized in useDeck — adding it would cause this effect to
+  // re-run on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [formatFilter])
 
   const handleDelete = async (id: string, name: string) => {

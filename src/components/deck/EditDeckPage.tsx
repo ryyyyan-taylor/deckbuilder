@@ -112,6 +112,9 @@ export function EditDeckPage() {
       }
     })
     fetchDeckCards(id).then(setDeckCards)
+  // fetchDeck, fetchDeckCards, updateDeck are not memoized in useDeck — adding them
+  // would cause this effect to re-run on every render.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   const updateSections = async (newSections: string[]) => {

@@ -34,6 +34,9 @@ export function ViewDeckPage() {
       document.title = `${d.name} — Deck Builder`
     })
     fetchDeckCards(id).then(setDeckCards)
+  // fetchDeck, fetchDeckCards are not memoized in useDeck — adding them would cause
+  // this effect to re-run on every render. user?.id is stable after login.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
   if (loading && !deck) {
