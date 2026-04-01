@@ -74,10 +74,14 @@ export function packColumns<T extends TypeGroup>(groups: T[], maxColumns: number
     columns.splice(removeIdx, 1)
   }
 
-  // If still over maxColumns, fall back to bin-packing (shortest column first)
+  // If still over maxColumns, fall back to bin-packing.
+  // Use First Fit Decreasing (tallest groups first) so tall anchors like Creature
+  // and Land claim their own columns before shorter groups fill the remainder.
   if (columns.length > maxColumns) {
-    const allGroups = columns.flat() as T[]
-    const tallest = Math.max(...allGroups.map((g) => groupHeight(g.cards.length)))
+    const allGroups = [...columns.flat() as T[]].sort(
+      (a, b) => groupHeight(b.cards.length) - groupHeight(a.cards.length)
+    )
+    const tallest = groupHeight(allGroups[0].cards.length)
     columns = []
 
     for (const group of allGroups) {
@@ -105,6 +109,12 @@ export function packColumns<T extends TypeGroup>(groups: T[], maxColumns: number
         columns[shortestIdx] = [...columns[shortestIdx], group]
       }
     }
+
+    // Restore TYPE_ORDER within each column and sort columns left-to-right
+    // by the TYPE_ORDER position of their leading group.
+    columns = columns
+      .map((col) => [...col].sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)) as T[])
+      .sort((a, b) => TYPE_ORDER.indexOf(a[0].type) - TYPE_ORDER.indexOf(b[0].type))
   }
 
   return columns
