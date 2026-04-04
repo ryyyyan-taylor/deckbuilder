@@ -126,10 +126,19 @@ export function ComparePage() {
         })
       )
 
+      // DEBUG: raw import results
+      decks.forEach((d, i) => {
+        const source = slots[i].type === 'saved' ? 'saved' : 'moxfield'
+        console.log(`[compare] deck ${i} "${d.name}" (${source}): ${d.cards.length} card rows`)
+        console.log(`[compare] deck ${i} card_ids:`, d.cards.map((c) => c.card_id))
+      })
+
       // Collect all unique card_ids
       const allCardIds = [
         ...new Set(decks.flatMap((d) => d.cards.map((c) => c.card_id))),
       ]
+
+      console.log(`[compare] total unique card_ids across all decks: ${allCardIds.length}`)
 
       if (allCardIds.length === 0) {
         setError('All decks appear to be empty')
@@ -151,22 +160,35 @@ export function ComparePage() {
         }
       }
 
+      console.log(`[compare] cardMap resolved ${cardMap.size} cards from DB`)
+
       // Build name-based sets for each deck
-      const buildNameMap = (cards: ImportedCard[]) => {
+      const buildNameMap = (cards: ImportedCard[], label: string) => {
         const map = new Map<string, Card>()
+        const missing: string[] = []
+        const dupes: string[] = []
         for (const c of cards) {
           const card = cardMap.get(c.card_id)
-          if (!card) continue
+          if (!card) {
+            missing.push(c.card_id)
+            continue
+          }
           const key = card.name.toLowerCase()
-          if (!map.has(key)) {
+          if (map.has(key)) {
+            dupes.push(card.name)
+          } else {
             map.set(key, card)
           }
         }
+        if (missing.length) console.warn(`[compare] ${label}: ${missing.length} card_id(s) not found in cardMap:`, missing)
+        if (dupes.length) console.log(`[compare] ${label}: ${dupes.length} duplicate name(s) collapsed:`, dupes)
+        console.log(`[compare] ${label}: ${map.size} unique card names`)
+        console.log(`[compare] ${label} names:`, [...map.keys()].sort())
         return map
       }
 
-      const nameMaps = decks.map((d) => buildNameMap(d.cards))
       const deckNames = decks.map((d, i) => d.name || `Deck ${i + 1}`)
+      const nameMaps = decks.map((d, i) => buildNameMap(d.cards, `"${deckNames[i]}"`))
 
       // Shared = cards present in ALL decks
       const allNames = new Set(nameMaps.flatMap((m) => [...m.keys()]))
@@ -177,6 +199,8 @@ export function ComparePage() {
           shared.push({ name: card.name, card })
         }
       }
+
+      console.log(`[compare] shared: ${shared.length}`, shared.map((c) => c.name).sort())
 
       // Unique per deck = cards NOT in all other decks
       const unique = nameMaps.map((map, idx) => {
@@ -189,6 +213,7 @@ export function ComparePage() {
             cards.push({ name: card.name, card })
           }
         }
+        console.log(`[compare] unique to "${deckNames[idx]}": ${cards.length}`, cards.map((c) => c.name).sort())
         return { name: deckNames[idx], cards }
       })
 
