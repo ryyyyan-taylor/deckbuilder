@@ -1,9 +1,10 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { TYPE_ORDER, getCardType, packColumns } from '../../lib/cards'
 import { useMaxColumns } from '../../hooks/useMaxColumns'
-import type { Card } from '../../hooks/useDeck'
+import { useAuth } from '../../hooks/useAuth'
+import type { Card, Deck } from '../../hooks/useDeck'
 
 interface ImportedCard {
   card_id: string
@@ -21,8 +22,21 @@ interface CompareCard {
   card: Card
 }
 
+// selectValue: '' = unset, 'deck:{id}' = saved deck, 'moxfield' = URL input
+interface Slot {
+  selectValue: string
+  url: string
+}
+
+const MOXFIELD_VALUE = 'moxfield'
+
 export function ComparePage() {
-  const [urls, setUrls] = useState<string[]>(['', ''])
+  const { user } = useAuth()
+  const [slots, setSlots] = useState<Slot[]>([
+    { selectValue: '', url: '' },
+    { selectValue: '', url: '' },
+  ])
+  const [savedDecks, setSavedDecks] = useState<Deck[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [previewCard, setPreviewCard] = useState<Card | null>(null)
@@ -32,21 +46,57 @@ export function ComparePage() {
     unique: { name: string; cards: CompareCard[] }[]
   } | null>(null)
 
-  const updateUrl = (index: number, value: string) => {
-    setUrls((prev) => prev.map((u, i) => (i === index ? value : u)))
+  useEffect(() => {
+    if (!user) return
+    supabase
+      .from('decks')
+      .select('id, user_id, name, format, description, is_public, sections, created_at, updated_at')
+      .eq('user_id', user.id)
+      .order('updated_at', { ascending: false })
+      .then(({ data }) => {
+        if (data) setSavedDecks(data as Deck[])
+      })
+  }, [user])
+
+  const updateSlotSelect = (index: number, value: string) => {
+    setSlots((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, selectValue: value } : s))
+    )
   }
 
-  const addUrl = () => setUrls((prev) => [...prev, ''])
+  const updateSlotUrl = (index: number, url: string) => {
+    setSlots((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, url } : s))
+    )
+  }
 
-  const removeUrl = (index: number) => {
-    setUrls((prev) => prev.filter((_, i) => i !== index))
+  const addSlot = () => setSlots((prev) => [...prev, { selectValue: '', url: '' }])
+
+  const removeSlot = (index: number) => {
+    setSlots((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const fetchSavedDeck = async (deckId: string): Promise<ImportResult> => {
+    const deck = savedDecks.find((d) => d.id === deckId)!
+    const { data, error } = await supabase
+      .from('deck_cards')
+      .select('card_id, section, quantity')
+      .eq('deck_id', deckId)
+    if (error) throw new Error(`Failed to load deck "${deck.name}"`)
+    return { name: deck.name, cards: (data || []) as ImportedCard[] }
   }
 
   const handleCompare = async () => {
-    const trimmed = urls.map((u) => u.trim())
-    if (trimmed.some((u) => !u)) {
-      setError('Please fill in all deck URLs')
-      return
+    for (let i = 0; i < slots.length; i++) {
+      const s = slots[i]
+      if (!s.selectValue) {
+        setError(`Please select a source for Deck ${i + 1}`)
+        return
+      }
+      if (s.selectValue === MOXFIELD_VALUE && !s.url.trim()) {
+        setError(`Please enter a Moxfield URL for Deck ${i + 1}`)
+        return
+      }
     }
 
     setLoading(true)
@@ -54,25 +104,23 @@ export function ComparePage() {
     setResult(null)
 
     try {
-      const responses = await Promise.all(
-        trimmed.map((url) =>
-          fetch('/api/import/moxfield', {
+      const decks: ImportResult[] = await Promise.all(
+        slots.map(async (s, i) => {
+          if (s.selectValue !== MOXFIELD_VALUE) {
+            const deckId = s.selectValue.replace('deck:', '')
+            return fetchSavedDeck(deckId)
+          }
+          const res = await fetch('/api/import/moxfield', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ url }),
+            body: JSON.stringify({ url: s.url.trim() }),
           })
-        )
-      )
-
-      const failedIdx = responses.findIndex((r) => !r.ok)
-      if (failedIdx >= 0) {
-        const errData = await responses[failedIdx].json()
-        setError(errData?.error || `Failed to import deck ${failedIdx + 1}`)
-        return
-      }
-
-      const decks: ImportResult[] = await Promise.all(
-        responses.map((r) => r.json())
+          if (!res.ok) {
+            const errData = await res.json()
+            throw new Error(errData?.error || `Failed to import Deck ${i + 1}`)
+          }
+          return res.json() as Promise<ImportResult>
+        })
       )
 
       // Collect all unique card_ids
@@ -142,8 +190,8 @@ export function ComparePage() {
       })
 
       setResult({ deckNames, shared, unique })
-    } catch {
-      setError('An error occurred while comparing decks')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'An error occurred while comparing decks')
     } finally {
       setLoading(false)
     }
@@ -164,36 +212,62 @@ export function ComparePage() {
 
         <div className="max-w-2xl mb-8">
           <div className="flex flex-col gap-3 mb-4">
-            {urls.map((url, i) => (
-              <div key={i} className="flex gap-2">
-                <input
-                  type="text"
-                  value={url}
-                  onChange={(e) => updateUrl(i, e.target.value)}
-                  placeholder={`Moxfield deck URL (Deck ${i + 1})`}
-                  className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-                />
-                {urls.length > 2 && (
-                  <button
-                    onClick={() => removeUrl(i)}
-                    className="px-2 text-gray-500 hover:text-red-400 text-lg"
-                    title="Remove"
+            {slots.map((slot, i) => (
+              <div key={i} className="flex flex-col gap-1">
+                <div className="flex gap-2">
+                  <select
+                    value={slot.selectValue}
+                    onChange={(e) => updateSlotSelect(i, e.target.value)}
+                    className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                   >
-                    &times;
-                  </button>
+                    <option value="" disabled>
+                      Deck {i + 1} — select a deck or Moxfield URL
+                    </option>
+                    {savedDecks.length > 0 && (
+                      <optgroup label="My Decks">
+                        {savedDecks.map((d) => (
+                          <option key={d.id} value={`deck:${d.id}`}>
+                            {d.name}{d.format ? ` (${d.format})` : ''}
+                          </option>
+                        ))}
+                      </optgroup>
+                    )}
+                    <optgroup label="External">
+                      <option value={MOXFIELD_VALUE}>Moxfield URL...</option>
+                    </optgroup>
+                  </select>
+                  {slots.length > 2 && (
+                    <button
+                      onClick={() => removeSlot(i)}
+                      className="px-2 text-gray-500 hover:text-red-400 text-lg"
+                      title="Remove"
+                    >
+                      &times;
+                    </button>
+                  )}
+                </div>
+                {slot.selectValue === MOXFIELD_VALUE && (
+                  <input
+                    type="text"
+                    value={slot.url}
+                    onChange={(e) => updateSlotUrl(i, e.target.value)}
+                    placeholder="https://www.moxfield.com/decks/..."
+                    className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    autoFocus
+                  />
                 )}
               </div>
             ))}
             <div className="flex gap-3">
               <button
-                onClick={addUrl}
+                onClick={addSlot}
                 className="px-3 py-2 border border-dashed border-gray-600 rounded text-sm text-gray-400 hover:text-gray-300 hover:border-gray-500"
               >
                 + Add Deck
               </button>
               <button
                 onClick={handleCompare}
-                disabled={loading || urls.length < 2}
+                disabled={loading || slots.length < 2}
                 className="px-6 py-2 bg-blue-600 hover:bg-blue-700 disabled:opacity-50 rounded font-medium text-sm"
               >
                 {loading ? 'Comparing...' : 'Compare'}
