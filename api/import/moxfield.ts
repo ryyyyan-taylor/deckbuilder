@@ -191,6 +191,46 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     const idMap = new Map(dbCards.map((c: { id: string; scryfall_id: string }) => [c.scryfall_id, c.id]));
 
+    // For any cards whose scryfall_id wasn't found (e.g. Moxfield has a stale/bad ID),
+    // fall back to a name lookup in our DB, then Scryfall /cards/named if still missing.
+    const stillMissing = allCards.filter((c) => !idMap.has(c.card.scryfall_id));
+    if (stillMissing.length > 0) {
+      const missingNames = [...new Set(stillMissing.map((c) => c.card.name))];
+      const { data: byName } = await supabase
+        .from("cards")
+        .select("id, scryfall_id, name, image_uris")
+        .in("name", missingNames);
+
+      const nameMap = new Map<string, { id: string; scryfall_id: string; image_uris: unknown }>();
+      for (const card of byName ?? []) {
+        if (!nameMap.has(card.name)) nameMap.set(card.name, card);
+      }
+
+      // For cards not in DB by name either, fetch from Scryfall /cards/named
+      const needsScryfall = missingNames.filter((n) => !nameMap.has(n) || !nameMap.get(n)!.image_uris);
+      for (const name of needsScryfall) {
+        const sfRes = await fetch(
+          `https://api.scryfall.com/cards/named?exact=${encodeURIComponent(name)}`
+        );
+        if (sfRes.ok) {
+          const sfCard: ScryfallCard = await sfRes.json();
+          const row = scryfallToRow(sfCard);
+          const { data: upserted } = await supabase
+            .from("cards")
+            .upsert(row, { onConflict: "scryfall_id" })
+            .select("id, scryfall_id, name, image_uris")
+            .single();
+          if (upserted) nameMap.set(sfCard.name, upserted);
+        }
+      }
+
+      // Patch idMap: map the Moxfield scryfall_id → our DB id via the name fallback
+      for (const c of stillMissing) {
+        const match = nameMap.get(c.card.name);
+        if (match) idMap.set(c.card.scryfall_id, match.id);
+      }
+    }
+
     const result = allCards
       .map((c) => ({
         card_id: idMap.get(c.card.scryfall_id),
