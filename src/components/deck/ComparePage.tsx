@@ -22,19 +22,17 @@ interface CompareCard {
   card: Card
 }
 
-// selectValue: '' = unset, 'deck:{id}' = saved deck, 'moxfield' = URL input
 interface Slot {
-  selectValue: string
+  type: 'saved' | 'moxfield'
+  deckId: string
   url: string
 }
-
-const MOXFIELD_VALUE = 'moxfield'
 
 export function ComparePage() {
   const { user } = useAuth()
   const [slots, setSlots] = useState<Slot[]>([
-    { selectValue: '', url: '' },
-    { selectValue: '', url: '' },
+    { type: 'saved', deckId: '', url: '' },
+    { type: 'saved', deckId: '', url: '' },
   ])
   const [savedDecks, setSavedDecks] = useState<Deck[]>([])
   const [loading, setLoading] = useState(false)
@@ -58,9 +56,15 @@ export function ComparePage() {
       })
   }, [user])
 
-  const updateSlotSelect = (index: number, value: string) => {
+  const updateSlotType = (index: number, type: Slot['type']) => {
     setSlots((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, selectValue: value } : s))
+      prev.map((s, i) => (i === index ? { ...s, type, deckId: '', url: '' } : s))
+    )
+  }
+
+  const updateSlotDeck = (index: number, deckId: string) => {
+    setSlots((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, deckId } : s))
     )
   }
 
@@ -70,7 +74,7 @@ export function ComparePage() {
     )
   }
 
-  const addSlot = () => setSlots((prev) => [...prev, { selectValue: '', url: '' }])
+  const addSlot = () => setSlots((prev) => [...prev, { type: 'saved', deckId: '', url: '' }])
 
   const removeSlot = (index: number) => {
     setSlots((prev) => prev.filter((_, i) => i !== index))
@@ -89,12 +93,12 @@ export function ComparePage() {
   const handleCompare = async () => {
     for (let i = 0; i < slots.length; i++) {
       const s = slots[i]
-      if (!s.selectValue) {
-        setError(`Please select a source for Deck ${i + 1}`)
+      if (s.type === 'saved' && !s.deckId) {
+        setError(`Please select a deck for slot ${i + 1}`)
         return
       }
-      if (s.selectValue === MOXFIELD_VALUE && !s.url.trim()) {
-        setError(`Please enter a Moxfield URL for Deck ${i + 1}`)
+      if (s.type === 'moxfield' && !s.url.trim()) {
+        setError(`Please enter a Moxfield URL for slot ${i + 1}`)
         return
       }
     }
@@ -106,9 +110,8 @@ export function ComparePage() {
     try {
       const decks: ImportResult[] = await Promise.all(
         slots.map(async (s, i) => {
-          if (s.selectValue !== MOXFIELD_VALUE) {
-            const deckId = s.selectValue.replace('deck:', '')
-            return fetchSavedDeck(deckId)
+          if (s.type === 'saved') {
+            return fetchSavedDeck(s.deckId)
           }
           const res = await fetch('/api/import/moxfield', {
             method: 'POST',
@@ -213,48 +216,40 @@ export function ComparePage() {
         <div className="max-w-2xl mb-8">
           <div className="flex flex-col gap-3 mb-4">
             {slots.map((slot, i) => (
-              <div key={i} className="flex flex-col gap-1">
-                <div className="flex gap-2">
-                  <select
-                    value={slot.selectValue}
-                    onChange={(e) => updateSlotSelect(i, e.target.value)}
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-                  >
-                    <option value="" disabled>
-                      Deck {i + 1} — select a deck or Moxfield URL
-                    </option>
-                    {savedDecks.length > 0 && (
-                      <optgroup label="My Decks">
-                        {savedDecks.map((d) => (
-                          <option key={d.id} value={`deck:${d.id}`}>
-                            {d.name}{d.format ? ` (${d.format})` : ''}
-                          </option>
-                        ))}
-                      </optgroup>
-                    )}
-                    <optgroup label="External">
-                      <option value={MOXFIELD_VALUE}>Moxfield URL...</option>
-                    </optgroup>
-                  </select>
-                  {slots.length > 2 && (
-                    <button
-                      onClick={() => removeSlot(i)}
-                      className="px-2 text-gray-500 hover:text-red-400 text-lg"
-                      title="Remove"
-                    >
-                      &times;
-                    </button>
-                  )}
-                </div>
-                {slot.selectValue === MOXFIELD_VALUE && (
+              <div key={i} className="flex gap-2">
+                <select
+                  value={slot.type}
+                  onChange={(e) => updateSlotType(i, e.target.value as Slot['type'])}
+                  className="w-28 shrink-0 bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm focus:outline-none focus:border-blue-500"
+                >
+                  <option value="saved">My Deck</option>
+                  <option value="moxfield">Moxfield</option>
+                </select>
+
+                {slot.type === 'saved' ? (
+                  <DeckSearchInput
+                    decks={savedDecks}
+                    value={slot.deckId}
+                    onChange={(id) => updateSlotDeck(i, id)}
+                  />
+                ) : (
                   <input
                     type="text"
                     value={slot.url}
                     onChange={(e) => updateSlotUrl(i, e.target.value)}
                     placeholder="https://www.moxfield.com/decks/..."
-                    className="bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-                    autoFocus
+                    className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                   />
+                )}
+
+                {slots.length > 2 && (
+                  <button
+                    onClick={() => removeSlot(i)}
+                    className="px-2 text-gray-500 hover:text-red-400 text-lg shrink-0"
+                    title="Remove"
+                  >
+                    &times;
+                  </button>
                 )}
               </div>
             ))}
@@ -342,6 +337,56 @@ export function ComparePage() {
           </div>
         )}
       </div>
+    </div>
+  )
+}
+
+function DeckSearchInput({
+  decks,
+  value,
+  onChange,
+}: {
+  decks: Deck[]
+  value: string
+  onChange: (deckId: string) => void
+}) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+
+  const label = (d: Deck) => `${d.name}${d.format ? ` (${d.format})` : ''}`
+  const selected = decks.find((d) => d.id === value)
+  const filtered = query
+    ? decks.filter((d) => label(d).toLowerCase().includes(query.toLowerCase()))
+    : decks
+
+  return (
+    <div className="relative flex-1">
+      <input
+        type="text"
+        value={open ? query : (selected ? label(selected) : '')}
+        onChange={(e) => setQuery(e.target.value)}
+        onFocus={() => { setQuery(''); setOpen(true) }}
+        onBlur={() => setTimeout(() => setOpen(false), 100)}
+        placeholder="Search your decks..."
+        className="w-full bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+      />
+      {open && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-1 bg-gray-800 border border-gray-700 rounded shadow-lg max-h-48 overflow-y-auto">
+          {filtered.length > 0 ? (
+            filtered.map((d) => (
+              <div
+                key={d.id}
+                onMouseDown={() => { onChange(d.id); setOpen(false) }}
+                className={`px-3 py-2 text-sm cursor-pointer hover:bg-gray-700 ${d.id === value ? 'text-blue-400' : ''}`}
+              >
+                {label(d)}
+              </div>
+            ))
+          ) : (
+            <div className="px-3 py-2 text-sm text-gray-500">No decks found</div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
