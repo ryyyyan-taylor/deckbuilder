@@ -28,7 +28,7 @@ interface Slot {
   url: string
 }
 
-const MAIN_SECTIONS = new Set(['Commander', 'Mainboard'])
+const MAIN_SECTIONS = new Set(['Mainboard'])
 
 export function ComparePage() {
   const { user } = useAuth()
@@ -178,7 +178,7 @@ export function ComparePage() {
             missing.push(c.card_id)
             continue
           }
-          const key = card.name.toLowerCase()
+          const key = card.name.toLowerCase().replace(/ \/\/ .+$/, '')
           if (map.has(key)) {
             dupes.push(card.name)
           } else {
