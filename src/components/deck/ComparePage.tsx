@@ -28,6 +28,8 @@ interface Slot {
   url: string
 }
 
+const MAIN_SECTIONS = new Set(['Commander', 'Mainboard'])
+
 export function ComparePage() {
   const { user } = useAuth()
   const [slots, setSlots] = useState<Slot[]>([
@@ -162,12 +164,14 @@ export function ComparePage() {
 
       console.log(`[compare] cardMap resolved ${cardMap.size} cards from DB`)
 
-      // Build name-based sets for each deck
+      // Build name-based sets for each deck (mainboard + commander only)
       const buildNameMap = (cards: ImportedCard[], label: string) => {
         const map = new Map<string, Card>()
         const missing: string[] = []
         const dupes: string[] = []
-        for (const c of cards) {
+        const mainCards = cards.filter((c) => MAIN_SECTIONS.has(c.section))
+        console.log(`[compare] ${label}: ${cards.length} total rows → ${mainCards.length} after section filter (Commander+Mainboard)`)
+        for (const c of mainCards) {
           const card = cardMap.get(c.card_id)
           if (!card) {
             missing.push(c.card_id)
