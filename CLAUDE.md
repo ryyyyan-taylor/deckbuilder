@@ -27,12 +27,12 @@ A Moxfield-inspired MTG deck hosting site. Users create accounts, build/save dec
 src/
   components/
     deck/       # EditDeckPage, ViewDeckPage, DeckSection, DeckCardItem, ComparePage,
-                # SuggestionsPanel, ResultsPanel, StatsPanel
+                # SuggestionsPanel, ResultsPanel, StatsPanel, SandboxPage
     cards/      # CardSearch, CardPreview
     auth/       # LoginForm, SignupForm
     Toast.tsx   # Lightweight toast notifications (auto-dismiss)
   lib/          # supabase.ts client init, cards.ts (shared type helpers + column layout)
-  hooks/        # useAuth, useDeck, useMaxColumns
+  hooks/        # useAuth, useDeck, useMaxColumns, useSandboxDeck
 api/
   cards/
     search.ts           # GET /api/cards/search?q=<query>
@@ -89,7 +89,8 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 - `/decks?format=X` — filtered deck list for a specific format (protected)
 - `/decks/new` — create new deck (protected)
 - `/decks/:id/edit` — deck editor (protected)
-- `/compare` — deck compare tool, imports 2+ Moxfield decks and shows shared/unique cards (protected)
+- `/compare` — deck compare tool: mix of saved decks + Moxfield URLs, shows shared/unique cards (protected)
+- `/sandbox` — ephemeral deck editor (sessionStorage, no DB save, clears on hard refresh/tab close) (protected)
 - `/deck/:id` — public read-only deck view (no auth required, respects `is_public` flag)
 
 ## Key Decisions
@@ -99,11 +100,15 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 - Tailwind CSS v4 configured via `@tailwindcss/vite` plugin (no tailwind.config, uses `@import "tailwindcss"` in CSS)
 - Supabase free tier — project pauses after 1 week of inactivity, use cron ping to `/api/health`
 - Moxfield import: server-side fetch from Moxfield API, cards looked up/inserted via Scryfall `/cards/collection` endpoint (never trust Moxfield for image data)
-- Deck editor uses 3-dot dropdown menu for Share, Edit Details, and Import from Moxfield
+- Deck editor: flat header buttons — Share, Edit Details, Import, Bulk Edit (no 3-dot menu)
 - Toast notifications for deck actions (add, remove, move, import, version change) — auto-dismiss after 2s, bottom-right corner
 - Portaled modals (e.g. version picker) need explicit `text-white` since they escape the dark-themed component tree
-- Deck compare tool: `/compare` page imports N Moxfield decks (2+ URLs, dynamically add/remove) via existing `/api/import/moxfield`, compares cards by name (case-insensitive), displays Shared (in all decks) / Unique to each deck, grouped by card type
+- Deck compare tool: `/compare` page supports N slots (2+, dynamically add/remove), each slot is either a saved user deck (searchable combobox) or a Moxfield URL (text input), selected via a small source-type dropdown. Compares cards by name (case-insensitive, DFC-aware), displays Shared (in all decks) / Unique to each deck, grouped by card type. Only Mainboard section compared (`MAIN_SECTIONS = new Set(['Mainboard'])`); Commander/Sideboard/Maybeboard excluded
 - Compare page uses same card column layout as deck editor (w-[200px] cards in w-[180px] columns, mt-[-238px] overlap) with sticky preview pane
+- Compare DFC handling: card names normalized with `.replace(/ \/\/ .+$/, '')` before comparison so "Birgi, God of Storytelling // Harnfel, Horn of Bounty" matches "Birgi, God of Storytelling"
+- Moxfield import stale scryfall_id fallback: if Moxfield returns an ID that 404s on Scryfall, fall back to DB lookup by card name, then Scryfall `/cards/named?exact=` — patches idMap so the card is still returned
+- Sandbox: `/sandbox` route uses `useSandboxDeck` hook — same API shape as `useDeck` but all state in sessionStorage + React state, no DB writes. `SANDBOX_ID = 'sandbox'`. Persists across soft reloads (F5), cleared on hard refresh or tab close. `SandboxPage` mirrors `EditDeckPage` with Reset button (clears to empty) instead of Share, and a "Sandbox" badge in the header
+- Utilities tab in `/decks` contains both Compare Decks and Deck Sandbox links
 - Card type helpers (`getCardType`, `TYPE_ORDER`), `packColumns()`, and layout constants (`COLUMN_WIDTH`, `COLUMN_GAP`) live in `src/lib/cards.ts`, shared by DeckSection and ComparePage
 - Column packing: `packColumns(groups, maxColumns)` only combines type groups into shared columns when they would overflow the container width. If all groups fit, each gets its own column in TYPE_ORDER (no packing). When packing is needed: priority merges (Artifact+Enchantment, Instant+Sorcery) first, then First Fit Decreasing bin-packing (tallest groups first so anchors like Creatures/Lands claim their own columns). TYPE_ORDER restored within columns and left-to-right after packing. `useMaxColumns` hook measures container width via ResizeObserver and recomputes on resize
 - Stats section: `"Stats"` stored as sentinel string in `deck.sections` (no schema change). Added silently on first deck load. `PROTECTED_SECTIONS = ['Mainboard', 'Stats']` — no rename/delete. `cardSections = sections.filter(s => s !== 'Stats')` used everywhere cards are involved. StatsPanel renders mana curve (Recharts BarChart), color pip bars, card type breakdown
@@ -120,4 +125,4 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 
 ## MVP Progress
 
-See `checklist.md` for current status. MVP complete and deployed. Post-MVP additions: Stats section, section drag-and-drop reordering, CI pipeline, FFD bin-packing improvement.
+See `checklist.md` for current status. MVP complete and deployed. Post-MVP additions: Stats section, section drag-and-drop reordering, CI pipeline, FFD bin-packing improvement, flat header buttons, bulk edit mode, Commander section protection, saved-deck compare sources, deck sandbox.
