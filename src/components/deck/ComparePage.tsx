@@ -131,8 +131,8 @@ export function ComparePage() {
       // DEBUG: raw import results
       decks.forEach((d, i) => {
         const source = slots[i].type === 'saved' ? 'saved' : 'moxfield'
-        console.log(`[compare] deck ${i} "${d.name}" (${source}): ${d.cards.length} card rows`)
-        console.log(`[compare] deck ${i} card_ids:`, d.cards.map((c) => c.card_id))
+        const sections = [...new Set(d.cards.map((c) => c.section))].sort().join(', ')
+        console.log(`[compare] deck ${i} "${d.name}" (${source}): ${d.cards.length} rows, sections: ${sections}`)
       })
 
       // Collect all unique card_ids
@@ -140,7 +140,7 @@ export function ComparePage() {
         ...new Set(decks.flatMap((d) => d.cards.map((c) => c.card_id))),
       ]
 
-      console.log(`[compare] total unique card_ids across all decks: ${allCardIds.length}`)
+      console.log(`[compare] total unique card_ids: ${allCardIds.length}`)
 
       if (allCardIds.length === 0) {
         setError('All decks appear to be empty')
@@ -170,7 +170,8 @@ export function ComparePage() {
         const missing: string[] = []
         const dupes: string[] = []
         const mainCards = cards.filter((c) => MAIN_SECTIONS.has(c.section))
-        console.log(`[compare] ${label}: ${cards.length} total rows → ${mainCards.length} after section filter (Commander+Mainboard)`)
+        const skipped = cards.filter((c) => !MAIN_SECTIONS.has(c.section))
+        console.log(`[compare] ${label}: ${cards.length} rows → ${mainCards.length} main (skipped ${skipped.length} from: ${[...new Set(skipped.map(c => c.section))].join(', ') || 'none'})`)
         for (const c of mainCards) {
           const card = cardMap.get(c.card_id)
           if (!card) {
@@ -184,10 +185,9 @@ export function ComparePage() {
             map.set(key, card)
           }
         }
-        if (missing.length) console.warn(`[compare] ${label}: ${missing.length} card_id(s) not found in cardMap:`, missing)
-        if (dupes.length) console.log(`[compare] ${label}: ${dupes.length} duplicate name(s) collapsed:`, dupes)
-        console.log(`[compare] ${label}: ${map.size} unique card names`)
-        console.log(`[compare] ${label} names:`, [...map.keys()].sort())
+        if (missing.length) console.warn(`[compare] ${label}: ${missing.length} card_ids missing from DB: ${missing.join(', ')}`)
+        if (dupes.length) console.log(`[compare] ${label}: ${dupes.length} duplicate names collapsed: ${dupes.sort().join(', ')}`)
+        console.log(`[compare] ${label}: ${map.size} unique names: ${[...map.keys()].sort().join(', ')}`)
         return map
       }
 
@@ -204,7 +204,7 @@ export function ComparePage() {
         }
       }
 
-      console.log(`[compare] shared: ${shared.length}`, shared.map((c) => c.name).sort())
+      console.log(`[compare] shared (${shared.length}): ${shared.map((c) => c.name).sort().join(', ')}`)
 
       // Unique per deck = cards NOT in all other decks
       const unique = nameMaps.map((map, idx) => {
@@ -217,7 +217,7 @@ export function ComparePage() {
             cards.push({ name: card.name, card })
           }
         }
-        console.log(`[compare] unique to "${deckNames[idx]}": ${cards.length}`, cards.map((c) => c.name).sort())
+        console.log(`[compare] unique to "${deckNames[idx]}" (${cards.length}): ${cards.map((c) => c.name).sort().join(', ')}`)
         return { name: deckNames[idx], cards }
       })
 
