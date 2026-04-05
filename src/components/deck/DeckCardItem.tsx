@@ -54,6 +54,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
       if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
         setExpanded(false)
         setContextMenu(null)
+        if (isMobile) onHoverCard?.(null)
       }
     }
     const handleKey = (e: KeyboardEvent) => {
@@ -70,7 +71,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
       document.removeEventListener('mousedown', handleClick)
       document.removeEventListener('keydown', handleKey)
     }
-  }, [isActive, mobileActionSheet])
+  }, [isActive, mobileActionSheet, isMobile, onHoverCard])
 
   // --- Touch / long-press handlers ---
   const handleTouchStart = (_e: React.TouchEvent) => {
