@@ -25,12 +25,16 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [versionSearch, setVersionSearch] = useState('')
+  const [mobileActionSheet, setMobileActionSheet] = useState(false)
+  const [isMobile] = useState(() => typeof window !== 'undefined' && window.matchMedia('(pointer: coarse)').matches)
   const cardRef = useRef<HTMLDivElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const touchMoved = useRef(false)
 
   const otherSections = (sections ?? []).filter((s) => s !== deckCard.section)
 
-  const isActive = expanded || !!contextMenu
+  const isActive = expanded || !!contextMenu || mobileActionSheet
 
   // Notify parent when active state changes.
   // onActiveChange is an inline function in DeckSection that changes every render;
@@ -40,11 +44,13 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isActive])
 
-  // Close expanded/context menu on click outside or Escape
+  // Close expanded/context menu on click outside or Escape (desktop only)
   useEffect(() => {
     if (!isActive) return
 
     const handleClick = (e: MouseEvent) => {
+      // Mobile action sheet uses its own backdrop — don't interfere
+      if (mobileActionSheet) return
       if (cardRef.current && !cardRef.current.contains(e.target as Node)) {
         setExpanded(false)
         setContextMenu(null)
@@ -54,6 +60,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
       if (e.key === 'Escape') {
         setExpanded(false)
         setContextMenu(null)
+        setMobileActionSheet(false)
       }
     }
 
@@ -63,10 +70,46 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
       document.removeEventListener('mousedown', handleClick)
       document.removeEventListener('keydown', handleKey)
     }
-  }, [isActive])
+  }, [isActive, mobileActionSheet])
+
+  // --- Touch / long-press handlers ---
+  const handleTouchStart = (_e: React.TouchEvent) => {
+    if (readOnly) return
+    touchMoved.current = false
+    longPressTimer.current = setTimeout(() => {
+      if (!touchMoved.current) {
+        setMobileActionSheet(true)
+        setExpanded(false)
+        navigator.vibrate?.(30)
+      }
+      longPressTimer.current = null
+    }, 500)
+  }
+
+  const handleTouchMove = () => {
+    touchMoved.current = true
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+    }
+  }
+
+  const handleTouchEnd = (_e: React.TouchEvent) => {
+    if (longPressTimer.current !== null) {
+      clearTimeout(longPressTimer.current)
+      longPressTimer.current = null
+      if (!touchMoved.current && !readOnly) {
+        // Short tap — toggle expanded, show preview
+        const newExpanded = !expanded
+        setExpanded(newExpanded)
+        setMobileActionSheet(false)
+        onHoverCard?.(newExpanded ? (deckCard.card ?? null) : null)
+      }
+    }
+  }
 
   const handleContextMenu = (e: React.MouseEvent) => {
-    if (readOnly) return
+    if (readOnly || isMobile) return
     e.preventDefault()
     if (otherSections.length === 0 && !onChangeVersion) return
     const rect = cardRef.current?.getBoundingClientRect()
@@ -78,6 +121,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
   const handleChangeVersionClick = async () => {
     setContextMenu(null)
     setExpanded(false)
+    setMobileActionSheet(false)
     setActiveSubmenu(null)
     setVersionsLoading(true)
     setShowVersionPicker(true)
@@ -104,10 +148,13 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
           zIndex: expanded || contextMenu ? 50 : undefined,
           position: 'relative' as const,
         }}
-        className={`relative w-[200px] shrink-0 ${readOnly ? '' : 'cursor-pointer'}`}
-        onClick={readOnly ? undefined : () => { setExpanded((prev) => !prev); setContextMenu(null) }}
+        className={`relative w-[200px] shrink-0 ${readOnly ? '' : 'cursor-pointer'} ${expanded && isMobile ? 'ring-2 ring-blue-400 rounded-lg' : ''}`}
+        onClick={readOnly || isMobile ? undefined : () => { setExpanded((prev) => !prev); setContextMenu(null) }}
         onContextMenu={handleContextMenu}
-        onMouseEnter={() => onHoverCard?.(deckCard.card ?? null)}
+        onMouseEnter={isMobile ? undefined : () => onHoverCard?.(deckCard.card ?? null)}
+        onTouchStart={handleTouchStart}
+        onTouchMove={handleTouchMove}
+        onTouchEnd={handleTouchEnd}
       >
         {imageUrl ? (
           <img
@@ -129,8 +176,8 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
           </span>
         )}
 
-        {/* Expanded overlay with controls */}
-        {expanded && !readOnly && (
+        {/* Desktop: expanded overlay with controls */}
+        {expanded && !readOnly && !isMobile && (
           <div className="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center gap-1">
             <button
               onClick={(e) => {
@@ -165,8 +212,8 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
           </div>
         )}
 
-        {/* Right-click context menu */}
-        {contextMenu && !readOnly && (
+        {/* Desktop: right-click context menu */}
+        {contextMenu && !readOnly && !isMobile && (
           <div
             ref={menuRef}
             className="absolute bg-gray-800 border border-gray-600 rounded shadow-xl py-1 min-w-[160px]"
@@ -263,10 +310,126 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
                 View on Scryfall
               </a>
             )}
-
           </div>
         )}
       </div>
+
+      {/* Mobile: long-press action sheet */}
+      {mobileActionSheet && !readOnly && isMobile && createPortal(
+        <div
+          className="fixed inset-0 bg-black/50 z-50 flex items-end text-white"
+          onClick={() => setMobileActionSheet(false)}
+        >
+          <div
+            className="bg-gray-800 border-t border-gray-600 rounded-t-2xl w-full"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Drag handle */}
+            <div className="flex justify-center pt-3 pb-1">
+              <div className="w-10 h-1 bg-gray-600 rounded-full" />
+            </div>
+            <div className="px-4 pb-8">
+              <p className="text-sm font-semibold text-center text-gray-200 mb-4">
+                {deckCard.card?.name}
+              </p>
+
+              {/* Quantity row */}
+              <div className="flex items-center justify-center gap-8 mb-4 py-3 bg-gray-700/50 rounded-xl">
+                <button
+                  onClick={(e) => { e.stopPropagation(); onQuantityChange?.(deckCard.id, deckCard.quantity - 1) }}
+                  className="w-11 h-11 bg-gray-600 hover:bg-gray-500 active:bg-gray-400 rounded-full text-white text-2xl font-bold flex items-center justify-center"
+                >
+                  −
+                </button>
+                <span className="text-white font-mono text-xl w-8 text-center select-none">
+                  {deckCard.quantity}
+                </span>
+                <button
+                  onClick={(e) => { e.stopPropagation(); onQuantityChange?.(deckCard.id, deckCard.quantity + 1) }}
+                  className="w-11 h-11 bg-gray-600 hover:bg-gray-500 active:bg-gray-400 rounded-full text-white text-2xl font-bold flex items-center justify-center"
+                >
+                  +
+                </button>
+              </div>
+
+              {/* Remove */}
+              <button
+                onClick={(e) => { e.stopPropagation(); onRemove?.(deckCard.id); setMobileActionSheet(false) }}
+                className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-gray-700 rounded-lg"
+              >
+                Remove from deck
+              </button>
+
+              {/* Send To */}
+              {otherSections.length > 0 && (
+                <div className="border-t border-gray-700 mt-2 pt-2">
+                  <p className="text-xs text-gray-500 px-4 py-1">Send to</p>
+                  {otherSections.map((s) => (
+                    <button
+                      key={s}
+                      onClick={(e) => { e.stopPropagation(); onSendToSection?.(deckCard.id, s); setMobileActionSheet(false) }}
+                      className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 rounded-lg"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Add To */}
+              {otherSections.length > 0 && (
+                <div className="border-t border-gray-700 mt-2 pt-2">
+                  <p className="text-xs text-gray-500 px-4 py-1">Add to</p>
+                  {otherSections.map((s) => (
+                    <button
+                      key={s}
+                      onClick={(e) => { e.stopPropagation(); onAddToSection?.(deckCard.card_id, s); setMobileActionSheet(false) }}
+                      className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 rounded-lg"
+                    >
+                      {s}
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Change Version */}
+              {onChangeVersion && (
+                <div className="border-t border-gray-700 mt-2 pt-2">
+                  <button
+                    onClick={(e) => { e.stopPropagation(); handleChangeVersionClick() }}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 rounded-lg"
+                  >
+                    Change Version
+                  </button>
+                </div>
+              )}
+
+              {/* View on Scryfall */}
+              {deckCard.card?.scryfall_id && (
+                <div className="border-t border-gray-700 mt-2 pt-2">
+                  <a
+                    href={`https://scryfall.com/card/${deckCard.card.scryfall_id}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="block w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 rounded-lg"
+                    onClick={() => setMobileActionSheet(false)}
+                  >
+                    View on Scryfall ↗
+                  </a>
+                </div>
+              )}
+
+              <button
+                onClick={() => setMobileActionSheet(false)}
+                className="w-full mt-3 py-3 text-sm text-gray-400 text-center border-t border-gray-700"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
 
       {/* Version picker modal — portaled to body to escape stacking contexts */}
       {showVersionPicker && createPortal(

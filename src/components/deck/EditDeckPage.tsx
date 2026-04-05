@@ -66,6 +66,9 @@ export function EditDeckPage() {
   const [showResults, setShowResults] = useState(false)
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const toastIdRef = useRef(0)
+  const [showActionsMenu, setShowActionsMenu] = useState(false)
+  const actionsMenuRef = useRef<HTMLDivElement>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
 
   const addToast = useCallback((message: string) => {
     const id = ++toastIdRef.current
@@ -428,6 +431,17 @@ export function EditDeckPage() {
     }
   }, [addingSectionName])
 
+  useEffect(() => {
+    if (!showActionsMenu) return
+    const handler = (e: MouseEvent) => {
+      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
+        setShowActionsMenu(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [showActionsMenu])
+
   if (loading && !deck) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
@@ -471,15 +485,15 @@ export function EditDeckPage() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <div className="mx-auto px-6 py-8">
+      <div className="mx-auto px-3 py-4 md:px-6 md:py-8">
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
+        <div className="flex items-start justify-between mb-6 gap-2">
+          <div className="min-w-0">
             <Link to="/decks" className="text-gray-400 hover:text-gray-300 text-sm">
               &larr; Back to decks
             </Link>
-            <h1 className="text-2xl font-bold mt-1">{deck!.name}</h1>
-            <div className="flex items-center gap-2 mt-1">
+            <h1 className="text-xl md:text-2xl font-bold mt-1 truncate">{deck!.name}</h1>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
               {deck!.format && (
                 <span className="bg-gray-700 px-2 py-0.5 rounded text-xs text-gray-300">
                   {deck!.format}
@@ -490,7 +504,90 @@ export function EditDeckPage() {
               </span>
             </div>
           </div>
-          <div className="flex items-center gap-3">
+
+          {/* Mobile: 3-dot menu */}
+          <div className="relative shrink-0 md:hidden" ref={actionsMenuRef}>
+            <button
+              onClick={() => setShowActionsMenu((p) => !p)}
+              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-lg leading-none"
+              aria-label="More actions"
+            >
+              ⋮
+            </button>
+            {showActionsMenu && (
+              <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded shadow-xl py-1 min-w-[200px] z-50">
+                {/* Sort */}
+                {!bulkEditMode && (
+                  <div className="px-3 py-2 border-b border-gray-700">
+                    <p className="text-xs text-gray-500 mb-1.5">Sort by</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setSortBy('name'); setShowActionsMenu(false) }}
+                        className={`px-2.5 py-1 rounded text-xs ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                      >
+                        Name
+                      </button>
+                      <button
+                        onClick={() => { setSortBy('cmc'); setShowActionsMenu(false) }}
+                        className={`px-2.5 py-1 rounded text-xs ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                      >
+                        Mana Value
+                      </button>
+                    </div>
+                  </div>
+                )}
+                {showSuggestionsButton && (
+                  <button
+                    onClick={() => { setShowSuggestions(true); setShowActionsMenu(false) }}
+                    className="w-full text-left px-3 py-2.5 text-sm text-purple-400 hover:bg-gray-700"
+                  >
+                    Suggestions
+                  </button>
+                )}
+                {showResultsButton && (
+                  <button
+                    onClick={() => { setShowResults(true); setShowActionsMenu(false) }}
+                    className="w-full text-left px-3 py-2.5 text-sm text-amber-400 hover:bg-gray-700"
+                  >
+                    Results
+                  </button>
+                )}
+                <a
+                  href={`/deck/${id}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="block px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
+                  onClick={() => setShowActionsMenu(false)}
+                >
+                  Share
+                </a>
+                <button
+                  onClick={() => { setShowEditForm(!showEditForm); setShowActionsMenu(false) }}
+                  className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
+                >
+                  Edit Details
+                </button>
+                <button
+                  onClick={() => { setShowImportModal(true); setShowActionsMenu(false) }}
+                  className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
+                >
+                  Import
+                </button>
+                <button
+                  onClick={() => {
+                    if (bulkEditMode) { setBulkEditMode(false); setBulkEditErrors([]) } else { enterBulkEdit() }
+                    setShowActionsMenu(false)
+                  }}
+                  className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
+                >
+                  {bulkEditMode ? 'Exit Bulk Edit' : 'Bulk Edit'}
+                </button>
+              </div>
+            )}
+          </div>
+
+          {/* Desktop: flat buttons */}
+          <div className="hidden md:flex items-center gap-3 shrink-0">
             {showSuggestionsButton && (
               <button
                 onClick={() => setShowSuggestions(true)}
@@ -566,7 +663,7 @@ export function EditDeckPage() {
         {/* Section management bar */}
         <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sections} strategy={horizontalListSortingStrategy}>
-            <div className="flex flex-wrap items-center gap-2 mb-6">
+            <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1 md:flex-wrap">
               {sections.map((s) => (
                 <SortablePill key={s} id={s}>
                   {renamingSection === s ? (
@@ -636,14 +733,23 @@ export function EditDeckPage() {
           </SortableContext>
         </DndContext>
 
-        {/* Card search */}
+        {/* Card search — collapsible on mobile */}
         <div className="mb-6">
-          <CardSearch
-            onAdd={handleAddCard}
-            sections={cardSections}
-            activeSection={cardSections.includes('Mainboard') ? 'Mainboard' : cardSections[0]}
-            onHoverCard={setPreviewCard}
-          />
+          <button
+            onClick={() => setSearchOpen((p) => !p)}
+            className="md:hidden w-full flex items-center justify-between px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-gray-300 hover:border-gray-500 mb-2"
+          >
+            <span>🔍 Search cards</span>
+            <span className="text-gray-500 text-xs">{searchOpen ? '▲' : '▼'}</span>
+          </button>
+          <div className={`${searchOpen ? 'block' : 'hidden'} md:block`}>
+            <CardSearch
+              onAdd={handleAddCard}
+              sections={cardSections}
+              activeSection={cardSections.includes('Mainboard') ? 'Mainboard' : cardSections[0]}
+              onHoverCard={setPreviewCard}
+            />
+          </div>
         </div>
 
         {/* Main content + preview panel */}
@@ -829,6 +935,44 @@ export function EditDeckPage() {
           </div>
         )}
       </div>
+
+      {/* Mobile card preview bottom sheet */}
+      {previewCard && (
+        <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-gray-900 border-t border-gray-700 shadow-2xl">
+          <div className="flex items-start gap-3 px-4 pt-3 pb-5">
+            {previewCard.image_uris?.normal ? (
+              <img
+                src={previewCard.image_uris.normal}
+                alt={previewCard.name}
+                className="w-20 rounded-lg shrink-0 shadow-lg"
+              />
+            ) : (
+              <div className="w-20 aspect-[2.5/3.5] bg-gray-700 rounded-lg shrink-0" />
+            )}
+            <div className="flex-1 min-w-0 pt-0.5">
+              <p className="font-semibold text-sm leading-tight">{previewCard.name}</p>
+              {previewCard.mana_cost && (
+                <p className="text-gray-400 text-xs mt-0.5">{previewCard.mana_cost}</p>
+              )}
+              {previewCard.type_line && (
+                <p className="text-gray-500 text-xs mt-0.5">{previewCard.type_line}</p>
+              )}
+              {previewCard.oracle_text && (
+                <p className="text-gray-400 text-xs mt-2 whitespace-pre-line leading-relaxed line-clamp-4">
+                  {previewCard.oracle_text}
+                </p>
+              )}
+            </div>
+            <button
+              onClick={() => setPreviewCard(null)}
+              className="shrink-0 text-gray-500 hover:text-gray-300 text-xl leading-none mt-0.5"
+              aria-label="Close preview"
+            >
+              ×
+            </button>
+          </div>
+        </div>
+      )}
 
       <Toast toasts={toasts} onRemove={removeToast} />
     </div>

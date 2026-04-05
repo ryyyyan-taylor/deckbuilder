@@ -25,7 +25,7 @@ function loadFromStorage(): { deck: Deck; cards: DeckCard[] } {
     if (deckRaw && cardsRaw) {
       return { deck: JSON.parse(deckRaw), cards: JSON.parse(cardsRaw) }
     }
-  } catch {}
+  } catch (_e) { /* ignore parse errors, return defaults */ }
   return { deck: DEFAULT_DECK, cards: [] }
 }
 
@@ -33,7 +33,7 @@ function saveToStorage(deck: Deck, cards: DeckCard[]) {
   try {
     sessionStorage.setItem(STORAGE_DECK, JSON.stringify(deck))
     sessionStorage.setItem(STORAGE_CARDS, JSON.stringify(cards))
-  } catch {}
+  } catch (_e) { /* ignore storage errors */ }
 }
 
 export function useSandboxDeck() {
@@ -65,7 +65,7 @@ export function useSandboxDeck() {
     try {
       sessionStorage.removeItem(STORAGE_DECK)
       sessionStorage.removeItem(STORAGE_CARDS)
-    } catch {}
+    } catch (_e) { /* ignore storage errors */ }
     commitDeck(DEFAULT_DECK)
     commitCards([])
   }
