@@ -16,7 +16,8 @@ interface DeckSectionProps {
   sections?: string[]
   onSendToSection?: (deckCardId: string, targetSection: string) => void
   onAddToSection?: (cardId: string, targetSection: string) => void
-  onChangeVersion?: (deckCardId: string, newCardId: string) => void
+  onMobileTap?: (deckCard: DeckCard) => void
+  onRequestVersionPicker?: (deckCard: DeckCard) => void
   readOnly?: boolean
 }
 
@@ -33,7 +34,7 @@ function sortCards(cards: DeckCard[], sortBy: SortBy): DeckCard[] {
   })
 }
 
-export function DeckSection({ section, cards, onQuantityChange, onRemove, onHoverCard, sortBy, sections, onSendToSection, onAddToSection, onChangeVersion, readOnly }: DeckSectionProps) {
+export function DeckSection({ section, cards, onQuantityChange, onRemove, onHoverCard, sortBy, sections, onSendToSection, onAddToSection, onMobileTap, onRequestVersionPicker, readOnly }: DeckSectionProps) {
   const [activeCardId, setActiveCardId] = useState<string | null>(null)
   const { ref: containerRef, maxColumns } = useMaxColumns()
   const totalCards = cards.reduce((sum, dc) => sum + dc.quantity, 0)
@@ -63,7 +64,8 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
                 sections={sections}
                 onSendToSection={onSendToSection}
                 onAddToSection={onAddToSection}
-                onChangeVersion={onChangeVersion}
+                onMobileTap={() => onMobileTap?.(dc)}
+                onRequestVersionPicker={() => onRequestVersionPicker?.(dc)}
                 readOnly={readOnly}
               />
             ))}
@@ -122,7 +124,8 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
                             sections={sections}
                             onSendToSection={onSendToSection}
                             onAddToSection={onAddToSection}
-                            onChangeVersion={onChangeVersion}
+                            onMobileTap={() => onMobileTap?.(dc)}
+                            onRequestVersionPicker={() => onRequestVersionPicker?.(dc)}
                             onActiveChange={(active) => setActiveCardId(active ? dc.id : null)}
                             readOnly={readOnly}
                           />

@@ -1,4 +1,5 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, Link } from 'react-router-dom'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
@@ -69,6 +70,12 @@ export function EditDeckPage() {
   const [showActionsMenu, setShowActionsMenu] = useState(false)
   const actionsMenuRef = useRef<HTMLDivElement>(null)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [activeMobileCard, setActiveMobileCard] = useState<DeckCard | null>(null)
+  const [versionPickerCard, setVersionPickerCard] = useState<DeckCard | null>(null)
+  const [versions, setVersions] = useState<Card[]>([])
+  const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
+  const [versionsLoading, setVersionsLoading] = useState(false)
+  const [versionSearch, setVersionSearch] = useState('')
 
   const addToast = useCallback((message: string) => {
     const id = ++toastIdRef.current
@@ -249,6 +256,21 @@ export function EditDeckPage() {
     } else {
       setDeckCards(oldDeckCards)
     }
+  }
+
+  const handleOpenVersionPicker = async (deckCard: DeckCard) => {
+    setActiveMobileCard(null)
+    setVersionPickerCard(deckCard)
+    setSelectedVersionId(deckCard.card_id)
+    setVersionSearch('')
+    setVersionsLoading(true)
+    const { data } = await supabase
+      .from('cards')
+      .select('*')
+      .eq('name', deckCard.card?.name ?? '')
+      .order('set_code')
+    setVersions((data ?? []) as Card[])
+    setVersionsLoading(false)
   }
 
   const handleImport = async () => {
@@ -813,7 +835,8 @@ export function EditDeckPage() {
                     sections={cardSections}
                     onSendToSection={handleSendToSection}
                     onAddToSection={handleAddToSection}
-                    onChangeVersion={handleChangeVersion}
+                    onMobileTap={setActiveMobileCard}
+                    onRequestVersionPicker={handleOpenVersionPicker}
                   />
                 )
               )}
@@ -936,42 +959,214 @@ export function EditDeckPage() {
         )}
       </div>
 
-      {/* Mobile card preview bottom sheet */}
-      {previewCard && (
-        <div className="fixed bottom-0 left-0 right-0 z-40 md:hidden bg-gray-900 border-t border-gray-700 shadow-2xl">
-          <div className="flex items-start gap-3 px-4 pt-3 pb-5">
-            {previewCard.image_uris?.normal ? (
-              <img
-                src={previewCard.image_uris.normal}
-                alt={previewCard.name}
-                className="w-20 rounded-lg shrink-0 shadow-lg"
-              />
-            ) : (
-              <div className="w-20 aspect-[2.5/3.5] bg-gray-700 rounded-lg shrink-0" />
-            )}
-            <div className="flex-1 min-w-0 pt-0.5">
-              <p className="font-semibold text-sm leading-tight">{previewCard.name}</p>
-              {previewCard.mana_cost && (
-                <p className="text-gray-400 text-xs mt-0.5">{previewCard.mana_cost}</p>
-              )}
-              {previewCard.type_line && (
-                <p className="text-gray-500 text-xs mt-0.5">{previewCard.type_line}</p>
-              )}
-              {previewCard.oracle_text && (
-                <p className="text-gray-400 text-xs mt-2 whitespace-pre-line leading-relaxed line-clamp-4">
-                  {previewCard.oracle_text}
-                </p>
-              )}
-            </div>
-            <button
-              onClick={() => setPreviewCard(null)}
-              className="shrink-0 text-gray-500 hover:text-gray-300 text-xl leading-none mt-0.5"
-              aria-label="Close preview"
+      {/* Mobile card action sheet */}
+      {activeMobileCard && (() => {
+        const live = deckCards.find(dc => dc.id === activeMobileCard.id) ?? activeMobileCard
+        const otherSections = cardSections.filter(s => s !== live.section)
+        return createPortal(
+          <div
+            className="fixed inset-0 bg-black/50 z-50 flex items-end text-white md:hidden"
+            onClick={() => setActiveMobileCard(null)}
+          >
+            <div
+              className="bg-gray-800 border-t border-gray-600 rounded-t-2xl w-full"
+              onClick={(e) => e.stopPropagation()}
             >
-              ×
-            </button>
+              <div className="flex justify-center pt-3 pb-1">
+                <div className="w-10 h-1 bg-gray-600 rounded-full" />
+              </div>
+              <div className="px-4 pb-8">
+                <p className="text-sm font-semibold text-center text-gray-200 mb-4">
+                  {live.card?.name}
+                </p>
+
+                {/* Quantity row */}
+                <div className="flex items-center justify-center gap-8 mb-4 py-3 bg-gray-700/50 rounded-xl">
+                  <button
+                    onClick={() => {
+                      if (live.quantity - 1 <= 0) setActiveMobileCard(null)
+                      handleQuantityChange(live.id, live.quantity - 1)
+                    }}
+                    className="w-11 h-11 bg-gray-600 hover:bg-gray-500 active:bg-gray-400 rounded-full text-white text-2xl font-bold flex items-center justify-center"
+                  >
+                    −
+                  </button>
+                  <span className="text-white font-mono text-xl w-8 text-center select-none">
+                    {live.quantity}
+                  </span>
+                  <button
+                    onClick={() => handleQuantityChange(live.id, live.quantity + 1)}
+                    className="w-11 h-11 bg-gray-600 hover:bg-gray-500 active:bg-gray-400 rounded-full text-white text-2xl font-bold flex items-center justify-center"
+                  >
+                    +
+                  </button>
+                </div>
+
+                {/* Remove */}
+                <button
+                  onClick={() => { handleRemove(live.id); setActiveMobileCard(null) }}
+                  className="w-full text-left px-4 py-3 text-sm text-red-400 hover:bg-gray-700 rounded-lg"
+                >
+                  Remove from deck
+                </button>
+
+                {/* Send To */}
+                {otherSections.length > 0 && (
+                  <div className="border-t border-gray-700 mt-2 pt-2">
+                    <p className="text-xs text-gray-500 px-4 py-1">Send to</p>
+                    {otherSections.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => { handleSendToSection(live.id, s); setActiveMobileCard(null) }}
+                        className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 rounded-lg"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Add To */}
+                {otherSections.length > 0 && (
+                  <div className="border-t border-gray-700 mt-2 pt-2">
+                    <p className="text-xs text-gray-500 px-4 py-1">Add to</p>
+                    {otherSections.map((s) => (
+                      <button
+                        key={s}
+                        onClick={() => { handleAddToSection(live.card_id, s); setActiveMobileCard(null) }}
+                        className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 rounded-lg"
+                      >
+                        {s}
+                      </button>
+                    ))}
+                  </div>
+                )}
+
+                {/* Change Version */}
+                <div className="border-t border-gray-700 mt-2 pt-2">
+                  <button
+                    onClick={() => handleOpenVersionPicker(live)}
+                    className="w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 rounded-lg"
+                  >
+                    Change Version
+                  </button>
+                </div>
+
+                {/* View on Scryfall */}
+                {live.card?.scryfall_id && (
+                  <div className="border-t border-gray-700 mt-2 pt-2">
+                    <a
+                      href={`https://scryfall.com/card/${live.card.scryfall_id}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="block w-full text-left px-4 py-3 text-sm text-gray-300 hover:bg-gray-700 rounded-lg"
+                      onClick={() => setActiveMobileCard(null)}
+                    >
+                      View on Scryfall ↗
+                    </a>
+                  </div>
+                )}
+
+                <button
+                  onClick={() => setActiveMobileCard(null)}
+                  className="w-full mt-3 py-3 text-sm text-gray-400 text-center border-t border-gray-700"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          </div>,
+          document.body
+        )
+      })()}
+
+      {/* Version picker modal */}
+      {versionPickerCard && createPortal(
+        <div
+          className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 text-white"
+          onClick={(e) => { if (e.target === e.currentTarget) setVersionPickerCard(null) }}
+        >
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-3xl mx-4 max-h-[80vh] flex flex-col">
+            <h2 className="text-lg font-semibold mb-1">Change Version</h2>
+            <p className="text-gray-400 text-sm mb-3">
+              {versionPickerCard.card?.name} — select a printing
+            </p>
+
+            <input
+              type="text"
+              value={versionSearch}
+              onChange={(e) => setVersionSearch(e.target.value)}
+              placeholder="Filter by set code..."
+              className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm mb-4 focus:outline-none focus:border-blue-500"
+            />
+
+            {versionsLoading ? (
+              <p className="text-gray-400 text-sm py-8 text-center">Loading versions...</p>
+            ) : (
+              <div className="flex-1 min-h-0 overflow-y-auto">
+                <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
+                  {versions
+                    .filter((v) => !versionSearch || v.set_code?.toLowerCase().includes(versionSearch.toLowerCase()))
+                    .map((v) => (
+                    <button
+                      key={v.id}
+                      onClick={() => setSelectedVersionId(v.id)}
+                      onDoubleClick={() => {
+                        if (v.id !== versionPickerCard.card_id) {
+                          handleChangeVersion(versionPickerCard.id, v.id)
+                          setVersionPickerCard(null)
+                        }
+                      }}
+                      className={`rounded-lg overflow-hidden border-2 transition-colors ${
+                        selectedVersionId === v.id
+                          ? 'border-blue-500'
+                          : 'border-transparent hover:border-gray-500'
+                      }`}
+                    >
+                      {v.image_uris?.normal ? (
+                        <img
+                          src={v.image_uris.normal}
+                          alt={`${v.name} (${v.set_code})`}
+                          className="w-full rounded-md"
+                          draggable={false}
+                        />
+                      ) : (
+                        <div className="w-full aspect-[2.5/3.5] bg-gray-700 flex items-center justify-center text-xs text-gray-400 p-1 text-center">
+                          No image
+                        </div>
+                      )}
+                      <p className="text-xs text-gray-400 uppercase text-center mt-1 pb-1">
+                        {v.set_code}
+                      </p>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="flex justify-end gap-3 mt-4 pt-3 border-t border-gray-700">
+              <button
+                onClick={() => setVersionPickerCard(null)}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => {
+                  if (selectedVersionId && selectedVersionId !== versionPickerCard.card_id) {
+                    handleChangeVersion(versionPickerCard.id, selectedVersionId)
+                  }
+                  setVersionPickerCard(null)
+                }}
+                disabled={!selectedVersionId || selectedVersionId === versionPickerCard.card_id}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-500 disabled:opacity-50 disabled:cursor-not-allowed rounded text-sm font-medium"
+              >
+                Change
+              </button>
+            </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       <Toast toasts={toasts} onRemove={removeToast} />
