@@ -574,6 +574,13 @@ export function EditDeckPage() {
                     Results
                   </button>
                 )}
+                <Link
+                  to={`/compare?deck=${id}`}
+                  className="block px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
+                  onClick={() => setShowActionsMenu(false)}
+                >
+                  Compare
+                </Link>
                 <a
                   href={`/deck/${id}`}
                   target="_blank"
@@ -590,12 +597,6 @@ export function EditDeckPage() {
                   Edit Details
                 </button>
                 <button
-                  onClick={() => { setShowImportModal(true); setShowActionsMenu(false) }}
-                  className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
-                >
-                  Import
-                </button>
-                <button
                   onClick={() => {
                     if (bulkEditMode) { setBulkEditMode(false); setBulkEditErrors([]) } else { enterBulkEdit() }
                     setShowActionsMenu(false)
@@ -604,28 +605,72 @@ export function EditDeckPage() {
                 >
                   {bulkEditMode ? 'Exit Bulk Edit' : 'Bulk Edit'}
                 </button>
+                {bulkEditMode && (
+                  <button
+                    onClick={() => { setShowImportModal(true); setShowActionsMenu(false) }}
+                    className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
+                  >
+                    Import
+                  </button>
+                )}
               </div>
             )}
           </div>
 
           {/* Desktop: flat buttons */}
-          <div className="hidden md:flex items-center gap-3 shrink-0">
-            {showSuggestionsButton && (
-              <button
-                onClick={() => setShowSuggestions(true)}
-                className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded text-sm font-medium"
+          <div className="hidden md:flex flex-col items-end gap-2 shrink-0">
+            <div className="flex items-center gap-3">
+              {showSuggestionsButton && (
+                <button
+                  onClick={() => setShowSuggestions(true)}
+                  className="px-3 py-1.5 bg-purple-600 hover:bg-purple-500 rounded text-sm font-medium"
+                >
+                  Suggestions
+                </button>
+              )}
+              {showResultsButton && (
+                <button
+                  onClick={() => setShowResults(true)}
+                  className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded text-sm font-medium"
+                >
+                  Results
+                </button>
+              )}
+              <Link
+                to={`/compare?deck=${id}`}
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
               >
-                Suggestions
-              </button>
-            )}
-            {showResultsButton && (
-              <button
-                onClick={() => setShowResults(true)}
-                className="px-3 py-1.5 bg-amber-600 hover:bg-amber-500 rounded text-sm font-medium"
+                Compare
+              </Link>
+              <a
+                href={`/deck/${id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
               >
-                Results
+                Share
+              </a>
+              <button
+                onClick={() => setShowEditForm(!showEditForm)}
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+              >
+                Edit Details
               </button>
-            )}
+              <button
+                onClick={bulkEditMode ? () => { setBulkEditMode(false); setBulkEditErrors([]) } : enterBulkEdit}
+                className={`px-3 py-1.5 rounded text-sm ${bulkEditMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+              >
+                {bulkEditMode ? 'Exit Bulk Edit' : 'Bulk Edit'}
+              </button>
+              {bulkEditMode && (
+                <button
+                  onClick={() => setShowImportModal(true)}
+                  className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+                >
+                  Import
+                </button>
+              )}
+            </div>
             {!bulkEditMode && (
               <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
                 <button
@@ -642,32 +687,6 @@ export function EditDeckPage() {
                 </button>
               </div>
             )}
-            <a
-              href={`/deck/${id}`}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
-            >
-              Share
-            </a>
-            <button
-              onClick={() => setShowEditForm(!showEditForm)}
-              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
-            >
-              Edit Details
-            </button>
-            <button
-              onClick={() => setShowImportModal(true)}
-              className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
-            >
-              Import
-            </button>
-            <button
-              onClick={bulkEditMode ? () => { setBulkEditMode(false); setBulkEditErrors([]) } : enterBulkEdit}
-              className={`px-3 py-1.5 rounded text-sm ${bulkEditMode ? 'bg-blue-700 hover:bg-blue-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
-            >
-              {bulkEditMode ? 'Exit Bulk Edit' : 'Bulk Edit'}
-            </button>
           </div>
         </div>
 

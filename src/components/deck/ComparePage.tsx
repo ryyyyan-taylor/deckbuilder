@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { TYPE_ORDER, getCardType, packColumns } from '../../lib/cards'
 import { useMaxColumns } from '../../hooks/useMaxColumns'
@@ -32,8 +32,10 @@ const MAIN_SECTIONS = new Set(['Mainboard'])
 
 export function ComparePage() {
   const { user } = useAuth()
+  const [searchParams] = useSearchParams()
+  const initialDeckId = searchParams.get('deck') ?? ''
   const [slots, setSlots] = useState<Slot[]>([
-    { type: 'saved', deckId: '', url: '' },
+    { type: 'saved', deckId: initialDeckId, url: '' },
     { type: 'saved', deckId: '', url: '' },
   ])
   const [savedDecks, setSavedDecks] = useState<Deck[]>([])
