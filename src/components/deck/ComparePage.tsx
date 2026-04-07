@@ -420,7 +420,7 @@ export function ComparePage() {
       {contextMenu && targetSections.length > 0 && (
         <div
           ref={contextMenuRef}
-          className="fixed z-50 bg-gray-800 border border-gray-700 rounded shadow-xl py-1 w-max"
+          className="fixed z-50 bg-gray-800 border border-gray-700 rounded shadow-xl py-1 w-max max-w-[160px]"
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
           <p className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-700">
