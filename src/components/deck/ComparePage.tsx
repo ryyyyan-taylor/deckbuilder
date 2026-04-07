@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { TYPE_ORDER, getCardType, packColumns } from '../../lib/cards'
@@ -47,6 +47,14 @@ export function ComparePage() {
     shared: CompareCard[]
     unique: { name: string; cards: CompareCard[] }[]
   } | null>(null)
+  const [contextMenu, setContextMenu] = useState<{ x: number; y: number; card: Card } | null>(null)
+  const [addFeedback, setAddFeedback] = useState<string | null>(null)
+  const contextMenuRef = useRef<HTMLDivElement>(null)
+
+  const targetDeck = slots[0].type === 'saved' && slots[0].deckId
+    ? savedDecks.find((d) => d.id === slots[0].deckId) ?? null
+    : null
+  const targetSections = (targetDeck?.sections ?? []).filter((s) => s !== 'Stats')
 
   useEffect(() => {
     if (!user) return
@@ -59,6 +67,43 @@ export function ComparePage() {
         if (data) setSavedDecks(data as Deck[])
       })
   }, [user])
+
+  useEffect(() => {
+    if (!contextMenu) return
+    const handleClick = (e: MouseEvent) => {
+      if (contextMenuRef.current && !contextMenuRef.current.contains(e.target as Node)) {
+        setContextMenu(null)
+      }
+    }
+    const handleKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setContextMenu(null)
+    }
+    document.addEventListener('mousedown', handleClick)
+    document.addEventListener('keydown', handleKey)
+    return () => {
+      document.removeEventListener('mousedown', handleClick)
+      document.removeEventListener('keydown', handleKey)
+    }
+  }, [contextMenu])
+
+  const handleAddToSection = async (card: Card, section: string) => {
+    setContextMenu(null)
+    if (!targetDeck) return
+    const { data: existing } = await supabase
+      .from('deck_cards')
+      .select('id, quantity')
+      .eq('deck_id', targetDeck.id)
+      .eq('card_id', card.id)
+      .eq('section', section)
+      .maybeSingle()
+    if (existing) {
+      await supabase.from('deck_cards').update({ quantity: existing.quantity + 1 }).eq('id', existing.id)
+    } else {
+      await supabase.from('deck_cards').insert({ deck_id: targetDeck.id, card_id: card.id, section, quantity: 1 })
+    }
+    setAddFeedback(`Added ${card.name} to ${section}`)
+    setTimeout(() => setAddFeedback(null), 2000)
+  }
 
   const updateSlotType = (index: number, type: Slot['type']) => {
     setSlots((prev) =>
@@ -315,6 +360,7 @@ export function ComparePage() {
                 title="Shared"
                 cards={result.shared}
                 onHoverCard={setPreviewCard}
+                onRightClick={targetSections.length > 0 ? (card, x, y) => setContextMenu({ x, y, card }) : undefined}
               />
               {result.unique.map((u, i) => (
                 <CompareSection
@@ -322,6 +368,7 @@ export function ComparePage() {
                   title={`Unique to ${u.name}`}
                   cards={u.cards}
                   onHoverCard={setPreviewCard}
+                  onRightClick={targetSections.length > 0 ? (card, x, y) => setContextMenu({ x, y, card }) : undefined}
                 />
               ))}
             </div>
@@ -368,6 +415,35 @@ export function ComparePage() {
           </div>
         )}
       </div>
+
+      {/* Right-click context menu */}
+      {contextMenu && targetSections.length > 0 && (
+        <div
+          ref={contextMenuRef}
+          className="fixed z-50 bg-gray-800 border border-gray-700 rounded shadow-xl py-1 min-w-[160px]"
+          style={{ top: contextMenu.y, left: contextMenu.x }}
+        >
+          <p className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-700">
+            Add to {targetDeck!.name}
+          </p>
+          {targetSections.map((section) => (
+            <button
+              key={section}
+              onClick={() => handleAddToSection(contextMenu.card, section)}
+              className="w-full text-left px-3 py-2 text-sm text-gray-300 hover:bg-gray-700"
+            >
+              {section}
+            </button>
+          ))}
+        </div>
+      )}
+
+      {/* Add feedback toast */}
+      {addFeedback && (
+        <div className="fixed bottom-6 right-6 z-50 bg-gray-800 border border-gray-700 text-white text-sm px-4 py-2 rounded shadow-lg">
+          {addFeedback}
+        </div>
+      )}
     </div>
   )
 }
@@ -426,10 +502,12 @@ function CompareSection({
   title,
   cards,
   onHoverCard,
+  onRightClick,
 }: {
   title: string
   cards: CompareCard[]
   onHoverCard: (card: Card | null) => void
+  onRightClick?: (card: Card, x: number, y: number) => void
 }) {
   const { ref: containerRef, maxColumns } = useMaxColumns()
 
@@ -482,6 +560,11 @@ function CompareSection({
                       <div
                         className="w-[200px]"
                         onMouseEnter={() => onHoverCard(cc.card)}
+                        onContextMenu={(e) => {
+                          if (!onRightClick) return
+                          e.preventDefault()
+                          onRightClick(cc.card, e.clientX, e.clientY)
+                        }}
                       >
                         {cc.card.image_uris?.normal ? (
                           <img
