@@ -63,8 +63,9 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
   // --- Touch handlers (mobile: short tap triggers onMobileTap) ---
   const handleTouchStart = () => { touchMoved.current = false }
   const handleTouchMove = () => { touchMoved.current = true }
-  const handleTouchEnd = () => {
+  const handleTouchEnd = (e: React.TouchEvent) => {
     if (!touchMoved.current && !readOnly) {
+      e.preventDefault() // suppress synthetic click so it doesn't fire on action sheet buttons
       onMobileTap?.()
     }
   }
