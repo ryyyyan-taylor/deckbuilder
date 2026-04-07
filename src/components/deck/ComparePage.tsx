@@ -420,7 +420,7 @@ export function ComparePage() {
       {contextMenu && targetSections.length > 0 && (
         <div
           ref={contextMenuRef}
-          className="fixed z-50 bg-gray-800 border border-gray-700 rounded shadow-xl py-1 min-w-[160px]"
+          className="fixed z-50 bg-gray-800 border border-gray-700 rounded shadow-xl py-1 w-max"
           style={{ top: contextMenu.y, left: contextMenu.x }}
         >
           <p className="px-3 py-1.5 text-xs text-gray-500 border-b border-gray-700">
@@ -510,6 +510,15 @@ function CompareSection({
   onRightClick?: (card: Card, x: number, y: number) => void
 }) {
   const { ref: containerRef, maxColumns } = useMaxColumns()
+  const [copied, setCopied] = useState(false)
+
+  const handleCopy = () => {
+    const text = cards.map((cc) => cc.name).sort((a, b) => a.localeCompare(b)).join('\n')
+    navigator.clipboard.writeText(text).then(() => {
+      setCopied(true)
+      setTimeout(() => setCopied(false), 1500)
+    })
+  }
 
   if (cards.length === 0) {
     return (
@@ -537,9 +546,17 @@ function CompareSection({
 
   return (
     <div className="rounded border p-4 border-gray-700 bg-gray-800/50">
-      <h3 className="text-sm font-semibold text-gray-300 mb-3">
-        {title} <span className="text-gray-500">({cards.length})</span>
-      </h3>
+      <div className="flex items-center justify-between mb-3">
+        <h3 className="text-sm font-semibold text-gray-300">
+          {title} <span className="text-gray-500">({cards.length})</span>
+        </h3>
+        <button
+          onClick={handleCopy}
+          className="text-xs text-gray-500 hover:text-gray-300 transition-colors"
+        >
+          {copied ? 'Copied!' : 'Copy Section'}
+        </button>
+      </div>
 
       <div ref={containerRef} className="flex flex-wrap justify-center gap-10">
         {packColumns(sortedGroups, maxColumns).map((column, colIdx) => (
