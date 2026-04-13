@@ -107,14 +107,15 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
                   <h4 className="text-xs font-medium text-gray-400 mb-2">
                     {type} <span className="text-gray-600">({typeCount})</span>
                   </h4>
-                  <div className="flex flex-wrap" style={{ rowGap: '8px' }}>
+                  {/* Cards in rows; each row overlaps the one below vertically (130px strip visible per row, 150px overlap) */}
+                  <div className="flex flex-wrap" style={{ rowGap: 0, paddingBottom: '150px' }}>
                     {typeCards.map((dc, i) => (
                       <div
                         key={dc.id}
-                        className="relative shrink-0"
+                        className="relative shrink-0 overflow-visible"
                         style={{
-                          marginRight: '-80px',
-                          zIndex: activeCardId === dc.id ? 100 : i,
+                          height: '130px',
+                          zIndex: activeCardId === dc.id ? 1000 : i,
                         }}
                       >
                         <DeckCardItem
