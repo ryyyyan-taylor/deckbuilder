@@ -107,21 +107,30 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
                   <h4 className="text-xs font-medium text-gray-400 mb-2">
                     {type} <span className="text-gray-600">({typeCount})</span>
                   </h4>
-                  <div className="flex flex-wrap gap-3">
-                    {typeCards.map((dc) => (
-                      <DeckCardItem
+                  <div className="flex flex-wrap" style={{ rowGap: '8px' }}>
+                    {typeCards.map((dc, i) => (
+                      <div
                         key={dc.id}
-                        deckCard={dc}
-                        onQuantityChange={onQuantityChange}
-                        onRemove={onRemove}
-                        onHoverCard={onHoverCard}
-                        sections={sections}
-                        onSendToSection={onSendToSection}
-                        onAddToSection={onAddToSection}
-                        onMobileTap={() => onMobileTap?.(dc)}
-                        onRequestVersionPicker={() => onRequestVersionPicker?.(dc)}
-                        readOnly={readOnly}
-                      />
+                        className="relative shrink-0"
+                        style={{
+                          marginRight: '-80px',
+                          zIndex: activeCardId === dc.id ? 100 : i,
+                        }}
+                      >
+                        <DeckCardItem
+                          deckCard={dc}
+                          onQuantityChange={onQuantityChange}
+                          onRemove={onRemove}
+                          onHoverCard={onHoverCard}
+                          sections={sections}
+                          onSendToSection={onSendToSection}
+                          onAddToSection={onAddToSection}
+                          onMobileTap={() => onMobileTap?.(dc)}
+                          onRequestVersionPicker={() => onRequestVersionPicker?.(dc)}
+                          onActiveChange={(active) => setActiveCardId(active ? dc.id : null)}
+                          readOnly={readOnly}
+                        />
+                      </div>
                     ))}
                   </div>
                 </div>
