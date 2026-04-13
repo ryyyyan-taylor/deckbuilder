@@ -385,8 +385,11 @@ export function EditDeckPage() {
         .from('cards')
         .select('id, name')
         .in('name', nameArray)
+        .order('released_at', { ascending: true, nullsFirst: false })
+      // First-write-wins: earliest printing (lowest released_at) wins per name
       for (const card of foundCards ?? []) {
-        cardLookup.set((card.name as string).toLowerCase(), card.id as string)
+        const key = (card.name as string).toLowerCase()
+        if (!cardLookup.has(key)) cardLookup.set(key, card.id as string)
       }
       // Fallback: ilike for any names the exact match missed
       const stillMissing = nameArray.filter((n) => !cardLookup.has(n.toLowerCase()))
@@ -395,6 +398,7 @@ export function EditDeckPage() {
           .from('cards')
           .select('id, name')
           .ilike('name', name)
+          .order('released_at', { ascending: true, nullsFirst: false })
           .limit(1)
         if (fuzzy?.[0]) cardLookup.set(name.toLowerCase(), fuzzy[0].id as string)
       }

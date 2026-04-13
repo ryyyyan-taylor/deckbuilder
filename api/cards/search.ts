@@ -15,6 +15,7 @@ interface ScryfallCard {
   colors?: string[];
   color_identity?: string[];
   set: string;
+  released_at?: string;
   image_uris?: Record<string, string>;
   card_faces?: Array<{ image_uris?: Record<string, string> }>;
 }
@@ -40,6 +41,7 @@ function scryfallToRow(card: ScryfallCard) {
     colors: card.colors ?? [],
     color_identity: card.color_identity ?? [],
     set_code: card.set,
+    released_at: card.released_at ?? null,
     image_uris: pickImageUris(card),
   };
 }

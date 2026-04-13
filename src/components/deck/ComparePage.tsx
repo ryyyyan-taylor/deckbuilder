@@ -164,12 +164,15 @@ export function ComparePage() {
       .from('cards')
       .select('id, name')
       .in('name', nameList)
+      .order('released_at', { ascending: true, nullsFirst: false })
 
     if (error) throw new Error(`Failed to look up cards for ${label}`)
 
+    // First-write-wins: earliest printing (lowest released_at) wins per name
     const cardLookup = new Map<string, string>() // name lower → card id
     for (const card of foundCards ?? []) {
-      cardLookup.set((card.name as string).toLowerCase(), card.id as string)
+      const key = (card.name as string).toLowerCase()
+      if (!cardLookup.has(key)) cardLookup.set(key, card.id as string)
     }
 
     // Fallback: ilike for any names the exact match missed
@@ -179,6 +182,7 @@ export function ComparePage() {
         .from('cards')
         .select('id, name')
         .ilike('name', name)
+        .order('released_at', { ascending: true, nullsFirst: false })
         .limit(1)
       if (fuzzy?.[0]) cardLookup.set(name.toLowerCase(), fuzzy[0].id as string)
     }

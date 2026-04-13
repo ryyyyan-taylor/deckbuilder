@@ -40,6 +40,7 @@ interface ScryfallCard {
   colors?: string[];
   color_identity?: string[];
   set: string;
+  released_at?: string;
   image_uris?: Record<string, string>;
   card_faces?: Array<{ image_uris?: Record<string, string> }>;
 }
@@ -73,6 +74,7 @@ function scryfallToRow(card: ScryfallCard) {
     colors: card.colors ?? [],
     color_identity: card.color_identity ?? [],
     set_code: card.set,
+    released_at: card.released_at ?? null,
     image_uris: pickImageUris(card),
   };
 }
@@ -199,8 +201,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       const { data: byName } = await supabase
         .from("cards")
         .select("id, scryfall_id, name, image_uris")
-        .in("name", missingNames);
+        .in("name", missingNames)
+        .order("released_at", { ascending: true, nullsFirst: false });
 
+      // First-write-wins: earliest printing per name
       const nameMap = new Map<string, { id: string; scryfall_id: string; image_uris: unknown }>();
       for (const card of byName ?? []) {
         if (!nameMap.has(card.name)) nameMap.set(card.name, card);
