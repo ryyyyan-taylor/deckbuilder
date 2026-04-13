@@ -23,9 +23,10 @@ interface CompareCard {
 }
 
 interface Slot {
-  type: 'saved' | 'moxfield'
+  type: 'saved' | 'moxfield' | 'text'
   deckId: string
   url: string
+  text: string
 }
 
 const MAIN_SECTIONS = new Set(['Mainboard'])
@@ -35,8 +36,8 @@ export function ComparePage() {
   const [searchParams] = useSearchParams()
   const initialDeckId = searchParams.get('deck') ?? ''
   const [slots, setSlots] = useState<Slot[]>([
-    { type: 'saved', deckId: initialDeckId, url: '' },
-    { type: 'saved', deckId: '', url: '' },
+    { type: 'saved', deckId: initialDeckId, url: '', text: '' },
+    { type: 'saved', deckId: '', url: '', text: '' },
   ])
   const [savedDecks, setSavedDecks] = useState<Deck[]>([])
   const [loading, setLoading] = useState(false)
@@ -107,7 +108,7 @@ export function ComparePage() {
 
   const updateSlotType = (index: number, type: Slot['type']) => {
     setSlots((prev) =>
-      prev.map((s, i) => (i === index ? { ...s, type, deckId: '', url: '' } : s))
+      prev.map((s, i) => (i === index ? { ...s, type, deckId: '', url: '', text: '' } : s))
     )
   }
 
@@ -123,10 +124,66 @@ export function ComparePage() {
     )
   }
 
-  const addSlot = () => setSlots((prev) => [...prev, { type: 'saved', deckId: '', url: '' }])
+  const updateSlotText = (index: number, text: string) => {
+    setSlots((prev) =>
+      prev.map((s, i) => (i === index ? { ...s, text } : s))
+    )
+  }
+
+  const addSlot = () => setSlots((prev) => [...prev, { type: 'saved', deckId: '', url: '', text: '' }])
 
   const removeSlot = (index: number) => {
     setSlots((prev) => prev.filter((_, i) => i !== index))
+  }
+
+  const fetchTextDeck = async (text: string, label: string): Promise<ImportResult> => {
+    // Parse lines: "N CardName" or just "CardName" (same format as bulk edit)
+    // Deduplicate by lowercased name, keeping first-seen original casing for DB lookup
+    const byNameLower = new Map<string, { name: string; quantity: number }>()
+    for (const line of text.split('\n')) {
+      const trimmed = line.trim()
+      if (!trimmed) continue
+      const match = trimmed.match(/^(\d+)\s+(.+)$/)
+      const name = match ? match[2].trim() : trimmed
+      const qty = match ? parseInt(match[1], 10) : 1
+      const key = name.toLowerCase()
+      if (byNameLower.has(key)) {
+        byNameLower.get(key)!.quantity += qty
+      } else {
+        byNameLower.set(key, { name, quantity: qty })
+      }
+    }
+
+    if (byNameLower.size === 0) throw new Error(`${label} is empty`)
+
+    // Look up card IDs by name (exact match, same as bulk edit)
+    const nameList = [...byNameLower.values()].map((e) => e.name)
+    const { data: foundCards, error } = await supabase
+      .from('cards')
+      .select('id, name')
+      .in('name', nameList)
+
+    if (error) throw new Error(`Failed to look up cards for ${label}`)
+
+    const cardLookup = new Map<string, string>() // name lower → card id
+    for (const card of foundCards ?? []) {
+      cardLookup.set((card.name as string).toLowerCase(), card.id as string)
+    }
+
+    const missing = nameList.filter((n) => !cardLookup.has(n.toLowerCase()))
+    if (missing.length > 0) {
+      throw new Error(
+        `${label}: card(s) not found: ${missing.slice(0, 5).join(', ')}${missing.length > 5 ? ` (+${missing.length - 5} more)` : ''}`
+      )
+    }
+
+    const cards: ImportedCard[] = []
+    for (const { name, quantity } of byNameLower.values()) {
+      const card_id = cardLookup.get(name.toLowerCase())!
+      cards.push({ card_id, section: 'Mainboard', quantity })
+    }
+
+    return { name: label, cards }
   }
 
   const fetchSavedDeck = async (deckId: string): Promise<ImportResult> => {
@@ -150,6 +207,10 @@ export function ComparePage() {
         setError(`Please enter a Moxfield URL for slot ${i + 1}`)
         return
       }
+      if (s.type === 'text' && !s.text.trim()) {
+        setError(`Please paste a card list for slot ${i + 1}`)
+        return
+      }
     }
 
     setLoading(true)
@@ -161,6 +222,9 @@ export function ComparePage() {
         slots.map(async (s, i) => {
           if (s.type === 'saved') {
             return fetchSavedDeck(s.deckId)
+          }
+          if (s.type === 'text') {
+            return fetchTextDeck(s.text, `Deck ${i + 1}`)
           }
           const res = await fetch('/api/import/moxfield', {
             method: 'POST',
@@ -292,31 +356,40 @@ export function ComparePage() {
         <div className="max-w-2xl mb-8">
           <div className="flex flex-col gap-3 mb-4">
             {slots.map((slot, i) => (
-              <div key={i} className="flex gap-2">
-                <select
-                  value={slot.type}
-                  onChange={(e) => updateSlotType(i, e.target.value as Slot['type'])}
-                  className="w-28 shrink-0 bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm focus:outline-none focus:border-blue-500"
-                >
-                  <option value="saved">My Deck</option>
-                  <option value="moxfield">Moxfield</option>
-                </select>
+              <div key={i} className={`flex gap-2 ${slot.type === 'text' ? 'items-start' : 'items-center'}`}>
+                  <select
+                    value={slot.type}
+                    onChange={(e) => updateSlotType(i, e.target.value as Slot['type'])}
+                    className="w-28 shrink-0 bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm focus:outline-none focus:border-blue-500"
+                  >
+                    <option value="saved">My Deck</option>
+                    <option value="moxfield">Moxfield</option>
+                    <option value="text">Text</option>
+                  </select>
 
-                {slot.type === 'saved' ? (
-                  <DeckSearchInput
-                    decks={savedDecks}
-                    value={slot.deckId}
-                    onChange={(id) => updateSlotDeck(i, id)}
-                  />
-                ) : (
-                  <input
-                    type="text"
-                    value={slot.url}
-                    onChange={(e) => updateSlotUrl(i, e.target.value)}
-                    placeholder="https://www.moxfield.com/decks/..."
-                    className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
-                  />
-                )}
+                  {slot.type === 'saved' ? (
+                    <DeckSearchInput
+                      decks={savedDecks}
+                      value={slot.deckId}
+                      onChange={(id) => updateSlotDeck(i, id)}
+                    />
+                  ) : slot.type === 'text' ? (
+                    <textarea
+                      value={slot.text}
+                      onChange={(e) => updateSlotText(i, e.target.value)}
+                      placeholder={"1 Lightning Bolt\n4 Counterspell\nSol Ring"}
+                      rows={5}
+                      className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500 resize-y font-mono"
+                    />
+                  ) : (
+                    <input
+                      type="text"
+                      value={slot.url}
+                      onChange={(e) => updateSlotUrl(i, e.target.value)}
+                      placeholder="https://www.moxfield.com/decks/..."
+                      className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
+                    />
+                  )}
 
                 {slots.length > 2 && (
                   <button
