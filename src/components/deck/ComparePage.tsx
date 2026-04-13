@@ -156,7 +156,9 @@ export function ComparePage() {
 
     if (byNameLower.size === 0) throw new Error(`${label} is empty`)
 
-    // Look up card IDs by name (exact match, same as bulk edit)
+    // Look up card IDs by name.
+    // Two-pass: exact .in() first, then case-insensitive .ilike() fallback for
+    // any names not found — handles case differences and invisible characters.
     const nameList = [...byNameLower.values()].map((e) => e.name)
     const { data: foundCards, error } = await supabase
       .from('cards')
@@ -168,6 +170,17 @@ export function ComparePage() {
     const cardLookup = new Map<string, string>() // name lower → card id
     for (const card of foundCards ?? []) {
       cardLookup.set((card.name as string).toLowerCase(), card.id as string)
+    }
+
+    // Fallback: ilike for any names the exact match missed
+    const stillMissing = nameList.filter((n) => !cardLookup.has(n.toLowerCase()))
+    for (const name of stillMissing) {
+      const { data: fuzzy } = await supabase
+        .from('cards')
+        .select('id, name')
+        .ilike('name', name)
+        .limit(1)
+      if (fuzzy?.[0]) cardLookup.set(name.toLowerCase(), fuzzy[0].id as string)
     }
 
     const missing = nameList.filter((n) => !cardLookup.has(n.toLowerCase()))

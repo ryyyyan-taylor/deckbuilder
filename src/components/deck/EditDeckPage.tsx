@@ -375,7 +375,9 @@ export function EditDeckPage() {
       }
     }
 
-    // Look up new card names in the cards table
+    // Look up new card names in the cards table.
+    // Two-pass: exact .in() first, then case-insensitive .ilike() fallback for
+    // any names not found — handles case differences and invisible characters.
     const cardLookup = new Map<string, string>() // name lower → card id
     const nameArray = [...namesToLookup]
     if (nameArray.length > 0) {
@@ -385,6 +387,16 @@ export function EditDeckPage() {
         .in('name', nameArray)
       for (const card of foundCards ?? []) {
         cardLookup.set((card.name as string).toLowerCase(), card.id as string)
+      }
+      // Fallback: ilike for any names the exact match missed
+      const stillMissing = nameArray.filter((n) => !cardLookup.has(n.toLowerCase()))
+      for (const name of stillMissing) {
+        const { data: fuzzy } = await supabase
+          .from('cards')
+          .select('id, name')
+          .ilike('name', name)
+          .limit(1)
+        if (fuzzy?.[0]) cardLookup.set(name.toLowerCase(), fuzzy[0].id as string)
       }
     }
 
