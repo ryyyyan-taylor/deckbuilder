@@ -13,7 +13,7 @@ const DEFAULT_DECK: Deck = {
   format: null,
   description: null,
   is_public: false,
-  sections: ['Mainboard', 'Stats'],
+  sections: ['Mainboard', 'Stats', 'Test'],
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
 }

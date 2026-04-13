@@ -14,6 +14,7 @@ import { DeckForm } from './DeckForm'
 import { DeckSection } from './DeckSection'
 import type { SortBy, ViewMode } from './DeckSection'
 import { StatsPanel } from './StatsPanel'
+import { TestPanel } from './TestPanel'
 import { CardSearch } from '../cards/CardSearch'
 import { SuggestionsPanel } from './SuggestionsPanel'
 import { ResultsPanel } from './ResultsPanel'
@@ -21,7 +22,8 @@ import { Toast } from '../Toast'
 import type { ToastItem } from '../Toast'
 
 const STATS_SECTION = 'Stats'
-const PROTECTED_SECTIONS = ['Mainboard', STATS_SECTION]
+const TEST_SECTION = 'Test'
+const PROTECTED_SECTIONS = ['Mainboard', STATS_SECTION, TEST_SECTION]
 
 function SortablePill({ id, children }: { id: string; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
@@ -87,8 +89,8 @@ export function EditDeckPage() {
     setToasts((prev) => prev.filter((t) => t.id !== id))
   }, [])
 
-  const sections = deck?.sections ?? ['Mainboard', STATS_SECTION]
-  const cardSections = sections.filter((s) => s !== STATS_SECTION)
+  const sections = deck?.sections ?? ['Mainboard', STATS_SECTION, TEST_SECTION]
+  const cardSections = sections.filter((s) => s !== STATS_SECTION && s !== TEST_SECTION)
   const commanderFormats = ['Commander', 'cEDH', 'Duel Commander']
   const protectedSections = commanderFormats.includes(deck?.format ?? '')
     ? [...PROTECTED_SECTIONS, 'Commander']
@@ -120,10 +122,11 @@ export function EditDeckPage() {
       if (d) {
         setDeck(d)
         document.title = `${d.name} — Deck Builder`
-        // Ensure Stats section exists
-        if (!(d.sections ?? []).includes(STATS_SECTION)) {
-          const current = d.sections ?? ['Mainboard']
-          updateDeck(id, { sections: [...current, STATS_SECTION] }).then((result) => {
+        // Ensure Stats and Test sections exist
+        const current = d.sections ?? ['Mainboard']
+        const missing = [STATS_SECTION, TEST_SECTION].filter((s) => !current.includes(s))
+        if (missing.length > 0) {
+          updateDeck(id, { sections: [...current, ...missing] }).then((result) => {
             if (result) setDeck(result)
           })
         }
@@ -878,6 +881,8 @@ export function EditDeckPage() {
               {sections.map((s) =>
                 s === STATS_SECTION ? (
                   <StatsPanel key={s} deckCards={deckCards} />
+                ) : s === TEST_SECTION ? (
+                  <TestPanel key={s} deckCards={deckCards} onHoverCard={setPreviewCard} />
                 ) : (
                   <DeckSection
                     key={s}
