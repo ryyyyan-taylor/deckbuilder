@@ -30,7 +30,7 @@ function SortablePill({ id, children }: { id: string; children: React.ReactNode 
   return (
     <div
       ref={setNodeRef}
-      style={{ transform: CSS.Transform.toString(transform), transition, opacity: isDragging ? 0.5 : 1 }}
+      style={{ transform: CSS.Transform.toString(transform ? { ...transform, y: 0 } : null), transition, opacity: isDragging ? 0.5 : 1 }}
       {...attributes}
       {...listeners}
     >
