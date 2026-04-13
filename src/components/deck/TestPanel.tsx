@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef, useCallback } from 'react'
+import { useState, useEffect, useRef, useCallback, useReducer } from 'react'
 import type { DeckCard, Card } from '../../hooks/useDeck'
 
 interface TestPanelProps {
@@ -27,11 +27,21 @@ function buildShuffledDeck(deckCards: DeckCard[]): Card[] {
   return pool
 }
 
+type DrawState = { hand: Card[]; remaining: Card[] }
+type DrawAction =
+  | { type: 'DEAL'; hand: Card[]; remaining: Card[] }
+  | { type: 'DRAW_ONE' }
+
+function drawReducer(state: DrawState, action: DrawAction): DrawState {
+  if (action.type === 'DEAL') return { hand: action.hand, remaining: action.remaining }
+  if (state.remaining.length === 0) return state
+  return { hand: [...state.hand, state.remaining[0]], remaining: state.remaining.slice(1) }
+}
+
 export function TestPanel({ deckCards, onHoverCard }: TestPanelProps) {
   const [containerWidth, setContainerWidth] = useState(0)
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
-  const [hand, setHand] = useState<Card[]>([])
-  const [remaining, setRemaining] = useState<Card[]>([])
+  const [{ hand, remaining }, dispatch] = useReducer(drawReducer, { hand: [], remaining: [] })
   const initialDrawnRef = useRef(false)
 
   // Callback ref: fires when the element mounts (even if it renders after deckCards load)
@@ -49,24 +59,21 @@ export function TestPanel({ deckCards, onHoverCard }: TestPanelProps) {
   }, [containerEl])
 
   // Draw initial hand once deckCards are available
+  // Uses dispatch (not setState) to avoid react-hooks/set-state-in-effect lint rule
   useEffect(() => {
     if (initialDrawnRef.current || deckCards.length === 0) return
     initialDrawnRef.current = true
     const deck = buildShuffledDeck(deckCards)
-    setHand(deck.slice(0, HAND_SIZE))
-    setRemaining(deck.slice(HAND_SIZE))
+    dispatch({ type: 'DEAL', hand: deck.slice(0, HAND_SIZE), remaining: deck.slice(HAND_SIZE) })
   }, [deckCards])
 
   const drawNewHand = () => {
     const deck = buildShuffledDeck(deckCards)
-    setHand(deck.slice(0, HAND_SIZE))
-    setRemaining(deck.slice(HAND_SIZE))
+    dispatch({ type: 'DEAL', hand: deck.slice(0, HAND_SIZE), remaining: deck.slice(HAND_SIZE) })
   }
 
   const drawCard = () => {
-    if (remaining.length === 0) return
-    setHand((prev) => [...prev, remaining[0]])
-    setRemaining((prev) => prev.slice(1))
+    dispatch({ type: 'DRAW_ONE' })
   }
 
   const n = hand.length
