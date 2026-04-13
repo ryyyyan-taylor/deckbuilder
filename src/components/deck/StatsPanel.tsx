@@ -7,21 +7,12 @@ interface StatsPanelProps {
 }
 
 const COLORS = [
-  { key: 'W', label: 'White', hex: '#e8dcc8' },
-  { key: 'U', label: 'Blue', hex: '#4a90d9' },
-  { key: 'B', label: 'Black', hex: '#9ca3af' },
-  { key: 'R', label: 'Red', hex: '#e05252' },
-  { key: 'G', label: 'Green', hex: '#4caf82' },
-]
-
-const TYPE_GROUPS = [
-  { label: 'Creatures', types: ['Creature'], dot: 'bg-blue-500' },
-  { label: 'Instants & Sorceries', types: ['Instant', 'Sorcery'], dot: 'bg-red-500' },
-  { label: 'Artifacts', types: ['Artifact'], dot: 'bg-gray-400' },
-  { label: 'Enchantments', types: ['Enchantment'], dot: 'bg-green-500' },
-  { label: 'Planeswalkers', types: ['Planeswalker'], dot: 'bg-purple-500' },
-  { label: 'Lands', types: ['Land'], dot: 'bg-yellow-600' },
-  { label: 'Other', types: ['Battle', 'Other'], dot: 'bg-gray-600' },
+  { key: 'W', label: 'White', bg: 'bg-[#e8dcc8]', text: 'text-[#5c4a2a]', hex: '#c9b58a' },
+  { key: 'U', label: 'Blue', bg: 'bg-blue-600', text: 'text-white', hex: '#3b82f6' },
+  { key: 'B', label: 'Black', bg: 'bg-gray-700', text: 'text-white', hex: '#6b7280' },
+  { key: 'R', label: 'Red', bg: 'bg-red-600', text: 'text-white', hex: '#ef4444' },
+  { key: 'G', label: 'Green', bg: 'bg-green-600', text: 'text-white', hex: '#22c55e' },
+  { key: 'C', label: 'Colorless', bg: 'bg-gray-500', text: 'text-white', hex: '#8b5cf6' },
 ]
 
 function parseColorPips(manaCost: string | null): Record<string, number> {
@@ -35,9 +26,38 @@ function parseColorPips(manaCost: string | null): Record<string, number> {
 }
 
 export function StatsPanel({ deckCards }: StatsPanelProps) {
-  const nonLands = deckCards.filter((dc) => getCardType(dc.card?.type_line ?? null) !== 'Land')
+  const mainboard = deckCards.filter((dc) => dc.section === 'Mainboard')
+  const lands = mainboard.filter((dc) => getCardType(dc.card?.type_line ?? null) === 'Land')
+  const nonLands = mainboard.filter((dc) => getCardType(dc.card?.type_line ?? null) !== 'Land')
 
-  // Mana curve — non-land cards, buckets 0–6, then 7+
+  const totalMainboard = mainboard.reduce((s, dc) => s + dc.quantity, 0)
+
+  // Pip demand from non-land mainboard cards
+  const pipsByColor: Record<string, number> = {}
+  for (const dc of nonLands) {
+    const pips = parseColorPips(dc.card?.mana_cost ?? null)
+    for (const [c, n] of Object.entries(pips)) {
+      pipsByColor[c] = (pipsByColor[c] ?? 0) + n * dc.quantity
+    }
+  }
+  const totalPips = Object.values(pipsByColor).reduce((s, n) => s + n, 0)
+
+  // Mana production from land mainboard cards (by color_identity)
+  const productionByColor: Record<string, number> = {}
+  let colorlessLandQty = 0
+  for (const dc of lands) {
+    const ci = dc.card?.color_identity ?? []
+    if (ci.length === 0) {
+      colorlessLandQty += dc.quantity
+    } else {
+      for (const c of ci) {
+        productionByColor[c] = (productionByColor[c] ?? 0) + dc.quantity
+      }
+    }
+  }
+  const totalLands = lands.reduce((s, dc) => s + dc.quantity, 0)
+
+  // Mana curve (non-land mainboard, buckets 0–7+)
   const cmcData = Array.from({ length: 8 }, (_, i) => ({
     cmc: i < 7 ? String(i) : '7+',
     count: 0,
@@ -48,56 +68,91 @@ export function StatsPanel({ deckCards }: StatsPanelProps) {
     cmcData[bucket].count += dc.quantity
   }
 
-  // Color pips — non-land cards
-  const pipTotals: Record<string, number> = {}
-  for (const dc of nonLands) {
-    const pips = parseColorPips(dc.card?.mana_cost ?? null)
-    for (const [c, n] of Object.entries(pips)) {
-      pipTotals[c] = (pipTotals[c] ?? 0) + n * dc.quantity
-    }
-  }
-  const maxPips = Math.max(1, ...Object.values(pipTotals))
-  const hasColors = Object.values(pipTotals).some((n) => n > 0)
+  const anyDemand = totalPips > 0
 
-  // Card type counts — all cards
-  const typeCounts: Record<string, number> = {}
-  for (const dc of deckCards) {
-    const type = getCardType(dc.card?.type_line ?? null)
-    typeCounts[type] = (typeCounts[type] ?? 0) + dc.quantity
-  }
-  const totalCards = deckCards.reduce((s, dc) => s + dc.quantity, 0)
-
-  const typeGroups = TYPE_GROUPS.map((g) => ({
-    ...g,
-    count: g.types.reduce((s, t) => s + (typeCounts[t] ?? 0), 0),
-  })).filter((g) => g.count > 0)
-
-  if (totalCards === 0) {
+  if (totalMainboard === 0) {
     return (
       <div className="rounded border p-4 border-gray-700 bg-gray-800/50">
         <h3 className="text-sm font-semibold text-gray-300 mb-3">Stats</h3>
-        <p className="text-gray-600 text-xs py-4">Add cards to see statistics</p>
+        <p className="text-gray-600 text-xs py-4">Add cards to the Mainboard to see statistics</p>
       </div>
     )
   }
 
   return (
-    <div className="rounded border p-4 border-gray-700 bg-gray-800/50">
-      <h3 className="text-sm font-semibold text-gray-300 mb-4">
-        Stats <span className="text-gray-500">({totalCards})</span>
+    <div className="rounded border p-4 border-gray-700 bg-gray-800/50 space-y-5">
+      <h3 className="text-sm font-semibold text-gray-300">
+        Stats <span className="text-gray-500">({totalMainboard})</span>
       </h3>
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
 
-        {/* Mana curve */}
+      {/* Color pip demand vs mana production */}
+      <div>
+        <div className="grid grid-cols-6 gap-2">
+          {COLORS.map(({ key, label, bg, text, hex }) => {
+            const demand = key === 'C' ? 0 : (pipsByColor[key] ?? 0)
+            const production = key === 'C' ? colorlessLandQty : (productionByColor[key] ?? 0)
+            const demandPct = totalPips > 0 ? Math.round((demand / totalPips) * 100) : 0
+            const productionPct = totalLands > 0 ? Math.round((production / totalLands) * 100) : 0
+
+            return (
+              <div key={key} className="flex flex-col items-center gap-1.5 min-w-0">
+                {/* Color symbol */}
+                <div className={`w-8 h-8 rounded-full ${bg} ${text} flex items-center justify-center text-xs font-bold shrink-0`}>
+                  {key}
+                </div>
+
+                {/* Pip demand */}
+                <div className="text-center">
+                  <div className="text-lg font-bold text-gray-100 leading-tight">{demandPct}%</div>
+                  <div className="text-[10px] text-gray-500 leading-tight whitespace-nowrap">of all pips</div>
+                </div>
+
+                {/* Demand count */}
+                {anyDemand && (
+                  <div className="text-[10px] text-gray-500 tabular-nums">
+                    {key === 'C' ? '—' : `${demand} pip${demand !== 1 ? 's' : ''}`}
+                  </div>
+                )}
+
+                {/* Mana production bar */}
+                <div className="w-full space-y-1">
+                  <div className="text-[10px] text-gray-400 text-center leading-tight">{label}</div>
+                  <div className="text-[10px] text-gray-400 text-center leading-tight">production</div>
+                  <div className="w-full bg-gray-700 rounded-full h-2 overflow-hidden">
+                    <div
+                      className="h-2 rounded-full transition-all duration-300"
+                      style={{ width: `${productionPct}%`, backgroundColor: hex }}
+                    />
+                  </div>
+                  <div className="text-[10px] text-gray-500 text-center tabular-nums leading-tight">
+                    {production}/{totalLands} lands
+                  </div>
+                  <div className="text-[10px] text-center leading-tight font-medium"
+                    style={{ color: productionPct === 0 && demandPct > 0 ? '#ef4444' : productionPct < demandPct ? '#f59e0b' : '#6b7280' }}>
+                    {productionPct}%
+                  </div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <p className="text-[10px] text-gray-600 mt-3 text-center">
+          Percentages will not add up to 100% for multi-color cards &middot; Mainboard only
+        </p>
+      </div>
+
+      {/* Mana curve */}
+      {anyDemand && (
         <div>
-          <h4 className="text-xs font-medium text-gray-400 mb-3">Mana Curve</h4>
-          <ResponsiveContainer width="100%" height={120}>
+          <h4 className="text-xs font-medium text-gray-400 mb-2">Mana Curve</h4>
+          <ResponsiveContainer width="100%" height={100}>
             <BarChart data={cmcData} margin={{ top: 0, right: 4, bottom: 0, left: -24 }}>
-              <XAxis dataKey="cmc" tick={{ fontSize: 11, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
-              <YAxis tick={{ fontSize: 11, fill: '#9ca3af' }} allowDecimals={false} axisLine={false} tickLine={false} />
+              <XAxis dataKey="cmc" tick={{ fontSize: 10, fill: '#9ca3af' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#9ca3af' }} allowDecimals={false} axisLine={false} tickLine={false} />
               <Tooltip
                 cursor={{ fill: 'rgba(255,255,255,0.05)' }}
-                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 6, fontSize: 12 }}
+                contentStyle={{ backgroundColor: '#1f2937', border: '1px solid #374151', borderRadius: 6, fontSize: 11 }}
                 labelStyle={{ color: '#e5e7eb' }}
                 itemStyle={{ color: '#93c5fd' }}
                 formatter={(value) => [value, 'Cards']}
@@ -106,52 +161,7 @@ export function StatsPanel({ deckCards }: StatsPanelProps) {
             </BarChart>
           </ResponsiveContainer>
         </div>
-
-        {/* Color distribution */}
-        <div>
-          <h4 className="text-xs font-medium text-gray-400 mb-3">Color Distribution</h4>
-          {hasColors ? (
-            <div className="space-y-2.5">
-              {COLORS.map(({ key, label, hex }) => {
-                const count = pipTotals[key] ?? 0
-                const pct = (count / maxPips) * 100
-                return (
-                  <div key={key} className="flex items-center gap-2">
-                    <span className="text-xs text-gray-500 w-12 shrink-0">{label}</span>
-                    <div className="flex-1 bg-gray-700 rounded-full h-1.5">
-                      <div
-                        className="h-1.5 rounded-full transition-all duration-300"
-                        style={{ width: `${pct}%`, backgroundColor: hex }}
-                      />
-                    </div>
-                    <span className="text-xs text-gray-500 w-5 text-right shrink-0">{count || ''}</span>
-                  </div>
-                )
-              })}
-            </div>
-          ) : (
-            <p className="text-gray-600 text-xs">No colored mana costs</p>
-          )}
-        </div>
-
-        {/* Card types */}
-        <div>
-          <h4 className="text-xs font-medium text-gray-400 mb-3">Card Types</h4>
-          <div className="space-y-2">
-            {typeGroups.map(({ label, count, dot }) => (
-              <div key={label} className="flex items-center gap-2">
-                <div className={`w-1.5 h-1.5 rounded-full shrink-0 ${dot}`} />
-                <span className="text-xs text-gray-400 flex-1">{label}</span>
-                <span className="text-xs text-gray-300 font-medium tabular-nums">{count}</span>
-                <span className="text-xs text-gray-600 w-8 text-right tabular-nums">
-                  {Math.round((count / totalCards) * 100)}%
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-      </div>
+      )}
     </div>
   )
 }
