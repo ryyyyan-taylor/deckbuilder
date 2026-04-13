@@ -4,6 +4,9 @@ import { getCardType } from '../../lib/cards'
 
 interface StatsPanelProps {
   deckCards: DeckCard[]
+  // Union color identity of all commander cards — when provided, colors outside
+  // the identity are dimmed (like Moxfield does for Commander format decks).
+  commanderColorIdentity?: string[]
 }
 
 const COLORS = [
@@ -43,7 +46,7 @@ function parseLandProduction(oracleText: string | null): string[] {
   return colors.size > 0 ? [...colors] : ['C']
 }
 
-export function StatsPanel({ deckCards }: StatsPanelProps) {
+export function StatsPanel({ deckCards, commanderColorIdentity }: StatsPanelProps) {
   const mainboard = deckCards.filter((dc) => dc.section === 'Mainboard')
   const lands = mainboard.filter((dc) => getCardType(dc.card?.type_line ?? null) === 'Land')
   const nonLands = mainboard.filter((dc) => getCardType(dc.card?.type_line ?? null) !== 'Land')
@@ -128,11 +131,15 @@ export function StatsPanel({ deckCards }: StatsPanelProps) {
             const productionPct = totalLands > 0 ? Math.round((production / totalLands) * 100) : 0
             const isActive = cardPct > 0 || productionPct > 0
             const needsColor = cardPct > 0 && productionPct === 0
+            // Dim colors outside the commander's color identity (when known)
+            const offIdentity = commanderColorIdentity != null
+              && !commanderColorIdentity.includes(key)
+            const dimmed = offIdentity || (!isActive && !commanderColorIdentity)
 
             return (
               <div
                 key={key}
-                className={`flex flex-col items-center gap-1 min-w-0 transition-opacity ${!isActive ? 'opacity-30' : ''}`}
+                className={`flex flex-col items-center gap-1 min-w-0 transition-opacity ${dimmed ? 'opacity-25' : ''}`}
               >
                 {/* Symbol + label */}
                 <img
@@ -146,7 +153,7 @@ export function StatsPanel({ deckCards }: StatsPanelProps) {
                 <div className="text-center mt-1">
                   <div
                     className="text-2xl font-bold leading-none tabular-nums"
-                    style={{ color: isActive ? hex : '#6b7280' }}
+                    style={{ color: isActive && !offIdentity ? hex : '#6b7280' }}
                   >
                     {cardPct}%
                   </div>

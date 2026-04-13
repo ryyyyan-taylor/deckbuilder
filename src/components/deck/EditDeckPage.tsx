@@ -489,6 +489,9 @@ export function EditDeckPage() {
   const commanderName = commanderCards.length > 0
     ? commanderCards.map((dc) => dc.card?.name).filter(Boolean).join(' / ')
     : null
+  const commanderColorIdentity = commanderFormats.includes(deck?.format ?? '')
+    ? [...new Set(commanderCards.flatMap((dc) => dc.card?.color_identity ?? []))]
+    : undefined
   const isCommander = deck?.format === 'Commander'
   const isCedh = deck?.format === 'cEDH'
   const isDuelCommander = deck?.format === 'Duel Commander'
@@ -880,7 +883,7 @@ export function EditDeckPage() {
             <div className="space-y-4">
               {sections.map((s) =>
                 s === STATS_SECTION ? (
-                  <StatsPanel key={s} deckCards={deckCards} />
+                  <StatsPanel key={s} deckCards={deckCards} commanderColorIdentity={commanderColorIdentity} />
                 ) : s === TEST_SECTION ? (
                   <TestPanel key={s} deckCards={deckCards} onHoverCard={setPreviewCard} />
                 ) : (
