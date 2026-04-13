@@ -7,12 +7,12 @@ interface StatsPanelProps {
 }
 
 const COLORS = [
-  { key: 'W', label: 'White', bg: 'bg-[#e8dcc8]', text: 'text-[#5c4a2a]', hex: '#c9b58a' },
-  { key: 'U', label: 'Blue', bg: 'bg-blue-600', text: 'text-white', hex: '#3b82f6' },
-  { key: 'B', label: 'Black', bg: 'bg-gray-700', text: 'text-white', hex: '#6b7280' },
-  { key: 'R', label: 'Red', bg: 'bg-red-600', text: 'text-white', hex: '#ef4444' },
-  { key: 'G', label: 'Green', bg: 'bg-green-600', text: 'text-white', hex: '#22c55e' },
-  { key: 'C', label: 'Colorless', bg: 'bg-gray-500', text: 'text-white', hex: '#8b5cf6' },
+  { key: 'W', label: 'White', hex: '#c9b58a' },
+  { key: 'U', label: 'Blue', hex: '#3b82f6' },
+  { key: 'B', label: 'Black', hex: '#6b7280' },
+  { key: 'R', label: 'Red', hex: '#ef4444' },
+  { key: 'G', label: 'Green', hex: '#22c55e' },
+  { key: 'C', label: 'Colorless', hex: '#8b5cf6' },
 ]
 
 function parseColorPips(manaCost: string | null): Record<string, number> {
@@ -88,7 +88,7 @@ export function StatsPanel({ deckCards }: StatsPanelProps) {
       {/* Color pip demand vs mana production */}
       <div>
         <div className="grid grid-cols-6 gap-2">
-          {COLORS.map(({ key, label, bg, text, hex }) => {
+          {COLORS.map(({ key, label, hex }) => {
             const demand = key === 'C' ? 0 : (pipsByColor[key] ?? 0)
             const production = key === 'C' ? colorlessLandQty : (productionByColor[key] ?? 0)
             const demandPct = totalPips > 0 ? Math.round((demand / totalPips) * 100) : 0
@@ -97,9 +97,11 @@ export function StatsPanel({ deckCards }: StatsPanelProps) {
             return (
               <div key={key} className="flex flex-col items-center gap-1.5 min-w-0">
                 {/* Color symbol */}
-                <div className={`w-8 h-8 rounded-full ${bg} ${text} flex items-center justify-center text-xs font-bold shrink-0`}>
-                  {key}
-                </div>
+                <img
+                  src={`https://svgs.scryfall.io/card-symbols/${key}.svg`}
+                  alt={label}
+                  className="w-8 h-8 shrink-0"
+                />
 
                 {/* Pip demand */}
                 <div className="text-center">
