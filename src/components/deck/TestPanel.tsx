@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import type { DeckCard, Card } from '../../hooks/useDeck'
 
 interface TestPanelProps {
@@ -28,20 +28,25 @@ function buildShuffledDeck(deckCards: DeckCard[]): Card[] {
 }
 
 export function TestPanel({ deckCards, onHoverCard }: TestPanelProps) {
-  const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null)
   const [hand, setHand] = useState<Card[]>([])
   const [remaining, setRemaining] = useState<Card[]>([])
   const initialDrawnRef = useRef(false)
 
+  // Callback ref: fires when the element mounts (even if it renders after deckCards load)
+  const containerRef = useCallback((node: HTMLDivElement | null) => {
+    setContainerEl(node)
+  }, [])
+
   useEffect(() => {
-    if (!containerRef.current) return
+    if (!containerEl) return
     const observer = new ResizeObserver(([entry]) => {
       setContainerWidth(entry.contentRect.width)
     })
-    observer.observe(containerRef.current)
+    observer.observe(containerEl)
     return () => observer.disconnect()
-  }, [])
+  }, [containerEl])
 
   // Draw initial hand once deckCards are available
   useEffect(() => {
