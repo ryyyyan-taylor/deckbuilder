@@ -12,7 +12,7 @@ import { useDeck } from '../../hooks/useDeck'
 import type { Deck, DeckCard, DeckInput, Card } from '../../hooks/useDeck'
 import { DeckForm } from './DeckForm'
 import { DeckSection } from './DeckSection'
-import type { SortBy } from './DeckSection'
+import type { SortBy, ViewMode } from './DeckSection'
 import { StatsPanel } from './StatsPanel'
 import { CardSearch } from '../cards/CardSearch'
 import { SuggestionsPanel } from './SuggestionsPanel'
@@ -50,6 +50,7 @@ export function EditDeckPage() {
   const [showEditForm, setShowEditForm] = useState(false)
   const [previewCard, setPreviewCard] = useState<Card | null>(null)
   const [sortBy, setSortBy] = useState<SortBy>('name')
+  const [viewMode, setViewMode] = useState<ViewMode>('stacks')
   const [addingSectionName, setAddingSectionName] = useState<string | null>(null)
   const [renamingSection, setRenamingSection] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -538,23 +539,42 @@ export function EditDeckPage() {
             </button>
             {showActionsMenu && (
               <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded shadow-xl py-1 min-w-[200px] z-50">
-                {/* Sort */}
+                {/* Sort + View */}
                 {!bulkEditMode && (
-                  <div className="px-3 py-2 border-b border-gray-700">
-                    <p className="text-xs text-gray-500 mb-1.5">Sort by</p>
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => { setSortBy('name'); setShowActionsMenu(false) }}
-                        className={`px-2.5 py-1 rounded text-xs ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
-                      >
-                        Name
-                      </button>
-                      <button
-                        onClick={() => { setSortBy('cmc'); setShowActionsMenu(false) }}
-                        className={`px-2.5 py-1 rounded text-xs ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
-                      >
-                        Mana Value
-                      </button>
+                  <div className="px-3 py-2 border-b border-gray-700 space-y-2">
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1.5">Sort by</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setSortBy('name'); setShowActionsMenu(false) }}
+                          className={`px-2.5 py-1 rounded text-xs ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                        >
+                          Name
+                        </button>
+                        <button
+                          onClick={() => { setSortBy('cmc'); setShowActionsMenu(false) }}
+                          className={`px-2.5 py-1 rounded text-xs ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                        >
+                          Mana Value
+                        </button>
+                      </div>
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-500 mb-1.5">View</p>
+                      <div className="flex gap-2">
+                        <button
+                          onClick={() => { setViewMode('stacks'); setShowActionsMenu(false) }}
+                          className={`px-2.5 py-1 rounded text-xs ${viewMode === 'stacks' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                        >
+                          Stacks
+                        </button>
+                        <button
+                          onClick={() => { setViewMode('grid'); setShowActionsMenu(false) }}
+                          className={`px-2.5 py-1 rounded text-xs ${viewMode === 'grid' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                        >
+                          Grid
+                        </button>
+                      </div>
                     </div>
                   </div>
                 )}
@@ -672,19 +692,35 @@ export function EditDeckPage() {
               )}
             </div>
             {!bulkEditMode && (
-              <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
-                <button
-                  onClick={() => setSortBy('name')}
-                  className={`px-3 py-1.5 rounded-l ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-                >
-                  Name
-                </button>
-                <button
-                  onClick={() => setSortBy('cmc')}
-                  className={`px-3 py-1.5 rounded-r ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-                >
-                  Mana Value
-                </button>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
+                  <button
+                    onClick={() => setSortBy('name')}
+                    className={`px-3 py-1.5 rounded-l ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Name
+                  </button>
+                  <button
+                    onClick={() => setSortBy('cmc')}
+                    className={`px-3 py-1.5 rounded-r ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Mana Value
+                  </button>
+                </div>
+                <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
+                  <button
+                    onClick={() => setViewMode('stacks')}
+                    className={`px-3 py-1.5 rounded-l ${viewMode === 'stacks' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Stacks
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`px-3 py-1.5 rounded-r ${viewMode === 'grid' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Grid
+                  </button>
+                </div>
               </div>
             )}
           </div>
@@ -851,6 +887,7 @@ export function EditDeckPage() {
                     onRemove={handleRemove}
                     onHoverCard={setPreviewCard}
                     sortBy={sortBy}
+                    viewMode={viewMode}
                     sections={cardSections}
                     onSendToSection={handleSendToSection}
                     onAddToSection={handleAddToSection}

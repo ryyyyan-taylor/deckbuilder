@@ -12,7 +12,7 @@ import { useSandboxDeck, SANDBOX_ID } from '../../hooks/useSandboxDeck'
 import type { DeckCard, DeckInput, Card } from '../../hooks/useDeck'
 import { DeckForm } from './DeckForm'
 import { DeckSection } from './DeckSection'
-import type { SortBy } from './DeckSection'
+import type { SortBy, ViewMode } from './DeckSection'
 import { StatsPanel } from './StatsPanel'
 import { CardSearch } from '../cards/CardSearch'
 import { SuggestionsPanel } from './SuggestionsPanel'
@@ -50,6 +50,7 @@ export function SandboxPage() {
   const [showEditForm, setShowEditForm] = useState(false)
   const [previewCard, setPreviewCard] = useState<Card | null>(null)
   const [sortBy, setSortBy] = useState<SortBy>('name')
+  const [viewMode, setViewMode] = useState<ViewMode>('stacks')
   const [addingSectionName, setAddingSectionName] = useState<string | null>(null)
   const [renamingSection, setRenamingSection] = useState<string | null>(null)
   const [renameValue, setRenameValue] = useState('')
@@ -446,20 +447,36 @@ export function SandboxPage() {
               </button>
             )}
             {!bulkEditMode && (
-              <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
-                <button
-                  onClick={() => setSortBy('name')}
-                  className={`px-3 py-1.5 rounded-l ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-                >
-                  Name
-                </button>
-                <button
-                  onClick={() => setSortBy('cmc')}
-                  className={`px-3 py-1.5 rounded-r ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-                >
-                  Mana Value
-                </button>
-              </div>
+              <>
+                <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
+                  <button
+                    onClick={() => setSortBy('name')}
+                    className={`px-3 py-1.5 rounded-l ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Name
+                  </button>
+                  <button
+                    onClick={() => setSortBy('cmc')}
+                    className={`px-3 py-1.5 rounded-r ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Mana Value
+                  </button>
+                </div>
+                <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
+                  <button
+                    onClick={() => setViewMode('stacks')}
+                    className={`px-3 py-1.5 rounded-l ${viewMode === 'stacks' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Stacks
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`px-3 py-1.5 rounded-r ${viewMode === 'grid' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Grid
+                  </button>
+                </div>
+              </>
             )}
             <button
               onClick={() => setShowEditForm(!showEditForm)}
@@ -643,6 +660,7 @@ export function SandboxPage() {
                       onRemove={handleRemove}
                       onHoverCard={setPreviewCard}
                       sortBy={sortBy}
+                      viewMode={viewMode}
                       sections={cardSections}
                       onSendToSection={handleSendToSection}
                       onAddToSection={handleAddToSection}

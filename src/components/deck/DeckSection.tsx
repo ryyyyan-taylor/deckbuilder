@@ -5,6 +5,7 @@ import { TYPE_ORDER, getCardType, packColumns } from '../../lib/cards'
 import { useMaxColumns } from '../../hooks/useMaxColumns'
 
 export type SortBy = 'name' | 'cmc'
+export type ViewMode = 'stacks' | 'grid'
 
 interface DeckSectionProps {
   section: string
@@ -13,6 +14,7 @@ interface DeckSectionProps {
   onRemove?: (deckCardId: string) => void
   onHoverCard?: (card: Card | null) => void
   sortBy: SortBy
+  viewMode?: ViewMode
   sections?: string[]
   onSendToSection?: (deckCardId: string, targetSection: string) => void
   onAddToSection?: (cardId: string, targetSection: string) => void
@@ -34,7 +36,7 @@ function sortCards(cards: DeckCard[], sortBy: SortBy): DeckCard[] {
   })
 }
 
-export function DeckSection({ section, cards, onQuantityChange, onRemove, onHoverCard, sortBy, sections, onSendToSection, onAddToSection, onMobileTap, onRequestVersionPicker, readOnly }: DeckSectionProps) {
+export function DeckSection({ section, cards, onQuantityChange, onRemove, onHoverCard, sortBy, viewMode = 'stacks', sections, onSendToSection, onAddToSection, onMobileTap, onRequestVersionPicker, readOnly }: DeckSectionProps) {
   const [activeCardId, setActiveCardId] = useState<string | null>(null)
   const { ref: containerRef, maxColumns } = useMaxColumns()
   const totalCards = cards.reduce((sum, dc) => sum + dc.quantity, 0)
@@ -87,6 +89,49 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
   const sortedGroups = TYPE_ORDER
     .filter((t) => grouped.has(t))
     .map((t) => ({ type: t, cards: sortCards(grouped.get(t)!, sortBy) }))
+
+  if (viewMode === 'grid') {
+    return (
+      <div className="rounded border p-4 border-gray-700 bg-gray-800/50">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">
+          {section} <span className="text-gray-500">({totalCards})</span>
+        </h3>
+        {cards.length === 0 ? (
+          <p className="text-gray-600 text-xs py-4">Add cards from search</p>
+        ) : (
+          <div className="flex flex-col gap-6">
+            {sortedGroups.map(({ type, cards: typeCards }) => {
+              const typeCount = typeCards.reduce((s, dc) => s + dc.quantity, 0)
+              return (
+                <div key={type}>
+                  <h4 className="text-xs font-medium text-gray-400 mb-2">
+                    {type} <span className="text-gray-600">({typeCount})</span>
+                  </h4>
+                  <div className="flex flex-wrap gap-3">
+                    {typeCards.map((dc) => (
+                      <DeckCardItem
+                        key={dc.id}
+                        deckCard={dc}
+                        onQuantityChange={onQuantityChange}
+                        onRemove={onRemove}
+                        onHoverCard={onHoverCard}
+                        sections={sections}
+                        onSendToSection={onSendToSection}
+                        onAddToSection={onAddToSection}
+                        onMobileTap={() => onMobileTap?.(dc)}
+                        onRequestVersionPicker={() => onRequestVersionPicker?.(dc)}
+                        readOnly={readOnly}
+                      />
+                    ))}
+                  </div>
+                </div>
+              )
+            })}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
     <div className="rounded border p-4 border-gray-700 bg-gray-800/50">
