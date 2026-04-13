@@ -87,7 +87,8 @@ export function TestPanel({ deckCards, onHoverCard }: TestPanelProps) {
       ) : (
         <>
           {/* Hand display — cards overlap as hand grows */}
-          <div ref={containerRef} className="flex mb-6" style={{ minHeight: '280px' }}>
+          <div ref={containerRef} className="w-full overflow-hidden mb-6">
+          <div className="flex" style={{ minHeight: '280px' }}>
             {hand.map((card, i) => (
               <div
                 key={i}
@@ -114,6 +115,7 @@ export function TestPanel({ deckCards, onHoverCard }: TestPanelProps) {
                 )}
               </div>
             ))}
+          </div>
           </div>
 
           <div className="flex items-center gap-3">
