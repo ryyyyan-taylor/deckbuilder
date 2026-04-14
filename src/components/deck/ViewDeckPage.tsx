@@ -6,8 +6,11 @@ import { DeckSection } from './DeckSection'
 import type { SortBy } from './DeckSection'
 import { StatsPanel } from './StatsPanel'
 import { useAuth } from '../../hooks/useAuth'
+import { useSideboardGuide } from '../../hooks/useSideboardGuide'
+import { SideboardGuidePanel } from './SideboardGuidePanel'
 
 const STATS_SECTION = 'Stats'
+const SIXTY_CARD_FORMATS = new Set(['Standard', 'Modern', 'Pioneer', 'Legacy', 'Vintage', 'Pauper'])
 
 export function ViewDeckPage() {
   const { id } = useParams<{ id: string }>()
@@ -18,6 +21,7 @@ export function ViewDeckPage() {
   const [previewCard, setPreviewCard] = useState<Card | null>(null)
   const [sortBy, setSortBy] = useState<SortBy>('name')
   const [notFound, setNotFound] = useState(false)
+  const guide = useSideboardGuide()
 
   useEffect(() => {
     if (!id) return
@@ -34,8 +38,9 @@ export function ViewDeckPage() {
       document.title = `${d.name} — Deck Builder`
     })
     fetchDeckCards(id).then(setDeckCards)
-  // fetchDeck, fetchDeckCards are not memoized in useDeck — adding them would cause
-  // this effect to re-run on every render. user?.id is stable after login.
+    void guide.fetchGuide(id)
+  // fetchDeck, fetchDeckCards, guide.fetchGuide are not memoized — adding them would
+  // cause this effect to re-run on every render. user?.id is stable after login.
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
@@ -144,6 +149,25 @@ export function ViewDeckPage() {
                 )
               )}
             </div>
+
+            {/* Sideboard guide — only for 60-card formats with a guide */}
+            {SIXTY_CARD_FORMATS.has(deck!.format ?? '') && (guide.matchups.length > 0 || guide.loading) && (
+              <div className="mt-6">
+                <h2 className="text-lg font-semibold mb-3">Sideboard Guide</h2>
+                <SideboardGuidePanel
+                  matchups={guide.matchups}
+                  loading={guide.loading}
+                  mainboardCards={deckCards.filter((dc) => dc.section === 'Mainboard')}
+                  sideboardCards={deckCards.filter((dc) => dc.section === 'Sideboard')}
+                  isEditable={false}
+                  onAddMatchup={async () => null}
+                  onRemoveMatchup={async () => false}
+                  onRenameMatchup={async () => false}
+                  onReorderMatchups={async () => {}}
+                  onSetEntry={async () => false}
+                />
+              </div>
+            )}
           </div>
 
           {/* Sticky preview panel */}

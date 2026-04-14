@@ -20,10 +20,13 @@ import { SuggestionsPanel } from './SuggestionsPanel'
 import { ResultsPanel } from './ResultsPanel'
 import { Toast } from '../Toast'
 import type { ToastItem } from '../Toast'
+import { useSandboxSideboardGuide } from '../../hooks/useSandboxSideboardGuide'
+import { SideboardGuidePanel } from './SideboardGuidePanel'
 
 const STATS_SECTION = 'Stats'
 const TEST_SECTION = 'Test'
 const PROTECTED_SECTIONS = ['Mainboard', STATS_SECTION, TEST_SECTION]
+const SIXTY_CARD_FORMATS = new Set(['Standard', 'Modern', 'Pioneer', 'Legacy', 'Vintage', 'Pauper'])
 
 function SortablePill({ id, children }: { id: string; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
@@ -76,6 +79,12 @@ export function SandboxPage() {
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [versionSearch, setVersionSearch] = useState('')
+  const [showGuide, setShowGuide] = useState(false)
+  const [guideConflict, setGuideConflict] = useState<{
+    message: string
+    onOverride: () => void
+  } | null>(null)
+  const guide = useSandboxSideboardGuide()
 
   const addToast = useCallback((message: string) => {
     const id = ++toastIdRef.current
@@ -159,10 +168,34 @@ export function SandboxPage() {
   }
 
   const handleQuantityChange = async (deckCardId: string, quantity: number) => {
+    const deckCard = deckCards.find((dc) => dc.id === deckCardId)
+    if (deckCard?.card?.name && SIXTY_CARD_FORMATS.has(deck.format ?? '')) {
+      const section = (deckCard.section === 'Sideboard' ? 'Sideboard' : 'Mainboard') as 'Mainboard' | 'Sideboard'
+      const conflicts = guide.checkConflict(deckCard.card.name, section, quantity)
+      if (conflicts.length > 0) {
+        setGuideConflict({
+          message: `${quantity <= 0 ? `Removing ${deckCard.card.name}` : `Reducing ${deckCard.card.name} to ×${quantity}`} in ${section} breaks your sideboard guide for: ${conflicts.join(', ')}.`,
+          onOverride: () => void updateDeckCardQuantity(deckCardId, quantity),
+        })
+        return
+      }
+    }
     await updateDeckCardQuantity(deckCardId, quantity)
   }
 
   const handleRemove = async (deckCardId: string) => {
+    const deckCard = deckCards.find((dc) => dc.id === deckCardId)
+    if (deckCard?.card?.name && SIXTY_CARD_FORMATS.has(deck.format ?? '')) {
+      const section = (deckCard.section === 'Sideboard' ? 'Sideboard' : 'Mainboard') as 'Mainboard' | 'Sideboard'
+      const conflicts = guide.checkConflict(deckCard.card.name, section, 0)
+      if (conflicts.length > 0) {
+        setGuideConflict({
+          message: `Removing ${deckCard.card.name} from ${section} breaks your sideboard guide for: ${conflicts.join(', ')}.`,
+          onOverride: () => { void removeDeckCard(deckCardId); addToast('Removed card') },
+        })
+        return
+      }
+    }
     await removeDeckCard(deckCardId)
     addToast('Removed card')
   }
@@ -239,8 +272,10 @@ export function SandboxPage() {
   const handleReset = () => {
     if (!window.confirm('Reset the sandbox? All cards will be cleared.')) return
     clearSandbox()
+    guide.clearGuide()
     setBulkEditMode(false)
     setBulkEditErrors([])
+    setShowGuide(false)
     addToast('Sandbox reset')
   }
 
@@ -355,6 +390,42 @@ export function SandboxPage() {
       return
     }
 
+    // Check sideboard guide conflicts before applying bulk changes
+    if (SIXTY_CARD_FORMATS.has(deck.format ?? '') && guide.matchups.length > 0) {
+      const conflictMatchups = new Set<string>()
+      for (const deckCardId of removes) {
+        const dc = deckCards.find((c) => c.id === deckCardId)
+        if (dc?.card?.name) {
+          const section = (dc.section === 'Sideboard' ? 'Sideboard' : 'Mainboard') as 'Mainboard' | 'Sideboard'
+          guide.checkConflict(dc.card.name, section, 0).forEach((c) => conflictMatchups.add(c))
+        }
+      }
+      for (const { deckCardId, quantity } of updates) {
+        const dc = deckCards.find((c) => c.id === deckCardId)
+        if (dc?.card?.name) {
+          const section = (dc.section === 'Sideboard' ? 'Sideboard' : 'Mainboard') as 'Mainboard' | 'Sideboard'
+          guide.checkConflict(dc.card.name, section, quantity).forEach((c) => conflictMatchups.add(c))
+        }
+      }
+      if (conflictMatchups.size > 0) {
+        const doSave = async () => {
+          setBulkEditSaving(true)
+          for (const deckCardId of removes) await removeDeckCard(deckCardId)
+          for (const { deckCardId, quantity } of updates) await updateDeckCardQuantity(deckCardId, quantity)
+          if (adds.length > 0) await bulkAddCards(SANDBOX_ID, adds)
+          setBulkEditMode(false)
+          addToast('Bulk edit saved')
+          setBulkEditSaving(false)
+        }
+        setGuideConflict({
+          message: `Bulk edit breaks your sideboard guide for: ${[...conflictMatchups].join(', ')}.`,
+          onOverride: doSave,
+        })
+        setBulkEditSaving(false)
+        return
+      }
+    }
+
     for (const deckCardId of removes) await removeDeckCard(deckCardId)
     for (const { deckCardId, quantity } of updates) await updateDeckCardQuantity(deckCardId, quantity)
     if (adds.length > 0) await bulkAddCards(SANDBOX_ID, adds)
@@ -390,6 +461,7 @@ export function SandboxPage() {
   const showSuggestionsButton = isCommander && !!commanderName
   const showResultsButton = (isCedh || isDuelCommander) && !!commanderName
   const resultsSource = isDuelCommander ? 'mtgtop8' as const : 'edhtop16' as const
+  const showGuideButton = SIXTY_CARD_FORMATS.has(deck.format ?? '')
   const deckCardNames = new Set(
     deckCards.map((dc) => dc.card?.name?.toLowerCase()).filter(Boolean) as string[]
   )
@@ -501,6 +573,14 @@ export function SandboxPage() {
             >
               {bulkEditMode ? 'Exit Bulk Edit' : 'Bulk Edit'}
             </button>
+            {showGuideButton && (
+              <button
+                onClick={() => { setShowGuide((v) => !v); setBulkEditMode(false) }}
+                className={`px-3 py-1.5 rounded text-sm ${showGuide ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+              >
+                {showGuide ? 'Exit Guide' : 'Guide'}
+              </button>
+            )}
             <button
               onClick={handleReset}
               className="px-3 py-1.5 bg-red-800 hover:bg-red-700 rounded text-sm"
@@ -521,8 +601,8 @@ export function SandboxPage() {
           </div>
         )}
 
-        {/* Section management bar */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        {/* Section management bar — hidden in guide mode */}
+        {!showGuide && <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sections} strategy={horizontalListSortingStrategy}>
             <div className="flex flex-wrap items-center gap-2 mb-6">
               {sections.map((s) => (
@@ -592,22 +672,35 @@ export function SandboxPage() {
               )}
             </div>
           </SortableContext>
-        </DndContext>
+        </DndContext>}
 
         {/* Card search */}
-        <div className="mb-6">
+        {!showGuide && <div className="mb-6">
           <CardSearch
             onAdd={handleAddCard}
             sections={cardSections}
             activeSection={cardSections.includes('Mainboard') ? 'Mainboard' : cardSections[0]}
             onHoverCard={setPreviewCard}
           />
-        </div>
+        </div>}
 
         {/* Main content + preview panel */}
         <div className="flex gap-6">
           <div className="flex-1 min-w-0">
-            {bulkEditMode ? (
+            {showGuide ? (
+              <SideboardGuidePanel
+                matchups={guide.matchups}
+                loading={guide.loading}
+                mainboardCards={deckCards.filter((dc) => dc.section === 'Mainboard')}
+                sideboardCards={deckCards.filter((dc) => dc.section === 'Sideboard')}
+                isEditable={true}
+                onAddMatchup={(name) => guide.addMatchup(SANDBOX_ID, name)}
+                onRemoveMatchup={guide.removeMatchup}
+                onRenameMatchup={guide.renameMatchup}
+                onReorderMatchups={guide.reorderMatchups}
+                onSetEntry={guide.setEntry}
+              />
+            ) : bulkEditMode ? (
               <div className="space-y-4">
                 {bulkEditErrors.length > 0 && (
                   <div className="bg-red-900/30 border border-red-700 rounded p-3">
@@ -681,7 +774,7 @@ export function SandboxPage() {
           </div>
 
           {/* Sticky preview panel */}
-          <div className="w-[300px] shrink-0 hidden lg:block">
+          {!showGuide && <div className="w-[300px] shrink-0 hidden lg:block">
             <div className="sticky top-[25vh]">
               {previewCard ? (
                 <div>
@@ -720,7 +813,7 @@ export function SandboxPage() {
                 </div>
               )}
             </div>
-          </div>
+          </div>}
         </div>
 
         {/* Suggestions panel */}
@@ -792,6 +885,31 @@ export function SandboxPage() {
           </div>
         )}
       </div>
+
+      {/* Guide conflict warning modal */}
+      {guideConflict && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-md text-white">
+            <h2 className="text-base font-semibold mb-2 text-amber-400">Sideboard Guide Conflict</h2>
+            <p className="text-sm text-gray-300 mb-4">{guideConflict.message}</p>
+            <p className="text-xs text-gray-500 mb-5">Update the guide first to keep it accurate, or override to apply the change anyway.</p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setGuideConflict(null)}
+                className="px-4 py-2 text-sm text-gray-400 hover:text-gray-300"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => { const fn = guideConflict.onOverride; setGuideConflict(null); void fn() }}
+                className="px-4 py-2 bg-amber-700 hover:bg-amber-600 rounded text-sm font-medium"
+              >
+                Override Anyway
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Mobile card action sheet */}
       {activeMobileCard && (() => {
