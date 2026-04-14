@@ -10,7 +10,6 @@ import { useSideboardGuide } from '../../hooks/useSideboardGuide'
 import { SideboardGuidePanel } from './SideboardGuidePanel'
 
 const STATS_SECTION = 'Stats'
-const SIXTY_CARD_FORMATS = new Set(['Standard', 'Modern', 'Pioneer', 'Legacy', 'Vintage', 'Pauper'])
 
 export function ViewDeckPage() {
   const { id } = useParams<{ id: string }>()
@@ -21,6 +20,7 @@ export function ViewDeckPage() {
   const [previewCard, setPreviewCard] = useState<Card | null>(null)
   const [sortBy, setSortBy] = useState<SortBy>('name')
   const [notFound, setNotFound] = useState(false)
+  const [showGuide, setShowGuide] = useState(false)
   const guide = useSideboardGuide()
 
   useEffect(() => {
@@ -137,6 +137,50 @@ export function ViewDeckPage() {
               {sections.map((s) =>
                 s === STATS_SECTION ? (
                   <StatsPanel key={s} deckCards={deckCards} />
+                ) : s === 'Sideboard' && showGuide ? (
+                  <div key={s} className="rounded border border-gray-700 bg-gray-800/50 p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-semibold text-gray-300">
+                        Sideboard <span className="text-gray-500 font-normal">— Guide</span>
+                      </h3>
+                      <button
+                        onClick={() => setShowGuide(false)}
+                        className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-400"
+                      >
+                        ← Cards
+                      </button>
+                    </div>
+                    <SideboardGuidePanel
+                      matchups={guide.matchups}
+                      loading={guide.loading}
+                      mainboardCards={deckCards.filter((dc) => dc.section === 'Mainboard')}
+                      sideboardCards={deckCards.filter((dc) => dc.section === 'Sideboard')}
+                      isEditable={false}
+                      onAddMatchup={async () => null}
+                      onRemoveMatchup={async () => false}
+                      onRenameMatchup={async () => false}
+                      onReorderMatchups={async () => {}}
+                      onSetEntry={async () => false}
+                    />
+                  </div>
+                ) : s === 'Sideboard' ? (
+                  <div key={s} className="relative">
+                    <DeckSection
+                      section={s}
+                      cards={cardsBySection[s]}
+                      onHoverCard={setPreviewCard}
+                      sortBy={sortBy}
+                      readOnly
+                    />
+                    {guide.matchups.length > 0 && (
+                      <button
+                        onClick={() => setShowGuide(true)}
+                        className="absolute top-3 right-4 text-xs px-2.5 py-1 bg-teal-900/70 hover:bg-teal-800 text-teal-300 rounded border border-teal-700/50"
+                      >
+                        Guide
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <DeckSection
                     key={s}
@@ -149,25 +193,6 @@ export function ViewDeckPage() {
                 )
               )}
             </div>
-
-            {/* Sideboard guide — only for 60-card formats with a guide */}
-            {SIXTY_CARD_FORMATS.has(deck!.format ?? '') && (guide.matchups.length > 0 || guide.loading) && (
-              <div className="mt-6">
-                <h2 className="text-lg font-semibold mb-3">Sideboard Guide</h2>
-                <SideboardGuidePanel
-                  matchups={guide.matchups}
-                  loading={guide.loading}
-                  mainboardCards={deckCards.filter((dc) => dc.section === 'Mainboard')}
-                  sideboardCards={deckCards.filter((dc) => dc.section === 'Sideboard')}
-                  isEditable={false}
-                  onAddMatchup={async () => null}
-                  onRemoveMatchup={async () => false}
-                  onRenameMatchup={async () => false}
-                  onReorderMatchups={async () => {}}
-                  onSetEntry={async () => false}
-                />
-              </div>
-            )}
           </div>
 
           {/* Sticky preview panel */}

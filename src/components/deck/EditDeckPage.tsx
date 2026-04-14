@@ -26,7 +26,6 @@ import { SideboardGuidePanel } from './SideboardGuidePanel'
 const STATS_SECTION = 'Stats'
 const TEST_SECTION = 'Test'
 const PROTECTED_SECTIONS = ['Mainboard', STATS_SECTION, TEST_SECTION]
-const SIXTY_CARD_FORMATS = new Set(['Standard', 'Modern', 'Pioneer', 'Legacy', 'Vintage', 'Pauper'])
 
 function SortablePill({ id, children }: { id: string; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
@@ -234,7 +233,7 @@ export function EditDeckPage() {
 
   const handleQuantityChange = async (deckCardId: string, quantity: number) => {
     const deckCard = deckCards.find((dc) => dc.id === deckCardId)
-    if (deckCard?.card?.name && SIXTY_CARD_FORMATS.has(deck?.format ?? '')) {
+    if (deckCard?.card?.name && guide.matchups.length > 0) {
       const section = (deckCard.section === 'Sideboard' ? 'Sideboard' : 'Mainboard') as 'Mainboard' | 'Sideboard'
       const conflicts = guide.checkConflict(deckCard.card.name, section, quantity)
       if (conflicts.length > 0) {
@@ -257,7 +256,7 @@ export function EditDeckPage() {
 
   const handleRemove = async (deckCardId: string) => {
     const deckCard = deckCards.find((dc) => dc.id === deckCardId)
-    if (deckCard?.card?.name && SIXTY_CARD_FORMATS.has(deck?.format ?? '')) {
+    if (deckCard?.card?.name && guide.matchups.length > 0) {
       const section = (deckCard.section === 'Sideboard' ? 'Sideboard' : 'Mainboard') as 'Mainboard' | 'Sideboard'
       const conflicts = guide.checkConflict(deckCard.card.name, section, 0)
       if (conflicts.length > 0) {
@@ -492,7 +491,7 @@ export function EditDeckPage() {
     }
 
     // Check sideboard guide conflicts before applying bulk changes
-    if (SIXTY_CARD_FORMATS.has(deck?.format ?? '') && guide.matchups.length > 0) {
+    if (guide.matchups.length > 0) {
       const conflictMatchups = new Set<string>()
       for (const deckCardId of removes) {
         const dc = deckCards.find((c) => c.id === deckCardId)
@@ -593,7 +592,6 @@ export function EditDeckPage() {
   const showSuggestionsButton = isCommander && !!commanderName
   const showResultsButton = (isCedh || isDuelCommander) && !!commanderName
   const resultsSource = isDuelCommander ? 'mtgtop8' as const : 'edhtop16' as const
-  const showGuideButton = SIXTY_CARD_FORMATS.has(deck?.format ?? '')
   const deckCardNames = new Set(deckCards.map((dc) => dc.card?.name?.toLowerCase()).filter(Boolean) as string[])
 
   const cardsBySection = cardSections.reduce<Record<string, DeckCard[]>>((acc, s) => {
@@ -735,14 +733,6 @@ export function EditDeckPage() {
                     Import
                   </button>
                 )}
-                {showGuideButton && (
-                  <button
-                    onClick={() => { setShowGuide((v) => !v); setBulkEditMode(false); setShowActionsMenu(false) }}
-                    className={`w-full text-left px-3 py-2.5 text-sm hover:bg-gray-700 ${showGuide ? 'text-teal-400' : 'text-gray-300'}`}
-                  >
-                    {showGuide ? 'Exit Guide' : 'Sideboard Guide'}
-                  </button>
-                )}
               </div>
             )}
           </div>
@@ -800,14 +790,6 @@ export function EditDeckPage() {
                   Import
                 </button>
               )}
-              {showGuideButton && (
-                <button
-                  onClick={() => { setShowGuide((v) => !v); setBulkEditMode(false) }}
-                  className={`px-3 py-1.5 rounded text-sm ${showGuide ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
-                >
-                  {showGuide ? 'Exit Guide' : 'Guide'}
-                </button>
-              )}
             </div>
             {!bulkEditMode && (
               <div className="flex items-center gap-2">
@@ -855,8 +837,8 @@ export function EditDeckPage() {
           </div>
         )}
 
-        {/* Section management bar — hidden in guide mode */}
-        {!showGuide && <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+        {/* Section management bar */}
+        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
           <SortableContext items={sections} strategy={horizontalListSortingStrategy}>
             <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1 md:flex-wrap">
               {sections.map((s) => (
@@ -926,10 +908,10 @@ export function EditDeckPage() {
               )}
             </div>
           </SortableContext>
-        </DndContext>}
+        </DndContext>
 
         {/* Card search — collapsible on mobile */}
-        {!showGuide && <div className="mb-6">
+        <div className="mb-6">
           <button
             onClick={() => setSearchOpen((p) => !p)}
             className="md:hidden w-full flex items-center justify-between px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-gray-300 hover:border-gray-500 mb-2"
@@ -945,26 +927,12 @@ export function EditDeckPage() {
               onHoverCard={setPreviewCard}
             />
           </div>
-        </div>}
+        </div>
 
         {/* Main content + preview panel */}
         <div className="flex gap-6">
-          {/* Deck sections / guide — full width */}
           <div className="flex-1 min-w-0">
-            {showGuide ? (
-              <SideboardGuidePanel
-                matchups={guide.matchups}
-                loading={guide.loading}
-                mainboardCards={deckCards.filter((dc) => dc.section === 'Mainboard')}
-                sideboardCards={deckCards.filter((dc) => dc.section === 'Sideboard')}
-                isEditable={true}
-                onAddMatchup={(name) => guide.addMatchup(id!, name)}
-                onRemoveMatchup={guide.removeMatchup}
-                onRenameMatchup={guide.renameMatchup}
-                onReorderMatchups={guide.reorderMatchups}
-                onSetEntry={guide.setEntry}
-              />
-            ) : bulkEditMode ? (
+            {bulkEditMode ? (
               <div className="space-y-4">
                 {bulkEditErrors.length > 0 && (
                   <div className="bg-red-900/30 border border-red-700 rounded p-3">
@@ -1011,6 +979,55 @@ export function EditDeckPage() {
                   <StatsPanel key={s} deckCards={deckCards} commanderColorIdentity={commanderColorIdentity} />
                 ) : s === TEST_SECTION ? (
                   <TestPanel key={s} deckCards={deckCards} onHoverCard={setPreviewCard} />
+                ) : s === 'Sideboard' && showGuide ? (
+                  <div key={s} className="rounded border border-gray-700 bg-gray-800/50 p-4">
+                    <div className="flex items-center justify-between mb-4">
+                      <h3 className="text-sm font-semibold text-gray-300">
+                        Sideboard <span className="text-gray-500 font-normal">— Guide</span>
+                      </h3>
+                      <button
+                        onClick={() => setShowGuide(false)}
+                        className="text-xs px-2 py-1 bg-gray-700 hover:bg-gray-600 rounded text-gray-400"
+                      >
+                        ← Cards
+                      </button>
+                    </div>
+                    <SideboardGuidePanel
+                      matchups={guide.matchups}
+                      loading={guide.loading}
+                      mainboardCards={deckCards.filter((dc) => dc.section === 'Mainboard')}
+                      sideboardCards={deckCards.filter((dc) => dc.section === 'Sideboard')}
+                      isEditable={true}
+                      onAddMatchup={(name) => guide.addMatchup(id!, name)}
+                      onRemoveMatchup={guide.removeMatchup}
+                      onRenameMatchup={guide.renameMatchup}
+                      onReorderMatchups={guide.reorderMatchups}
+                      onSetEntry={guide.setEntry}
+                    />
+                  </div>
+                ) : s === 'Sideboard' ? (
+                  <div key={s} className="relative">
+                    <DeckSection
+                      section={s}
+                      cards={cardsBySection[s]}
+                      onQuantityChange={handleQuantityChange}
+                      onRemove={handleRemove}
+                      onHoverCard={setPreviewCard}
+                      sortBy={sortBy}
+                      viewMode={viewMode}
+                      sections={cardSections}
+                      onSendToSection={handleSendToSection}
+                      onAddToSection={handleAddToSection}
+                      onMobileTap={setActiveMobileCard}
+                      onRequestVersionPicker={handleOpenVersionPicker}
+                    />
+                    <button
+                      onClick={() => setShowGuide(true)}
+                      className="absolute top-3 right-4 text-xs px-2.5 py-1 bg-teal-900/70 hover:bg-teal-800 text-teal-300 rounded border border-teal-700/50"
+                    >
+                      Guide
+                    </button>
+                  </div>
                 ) : (
                   <DeckSection
                     key={s}
@@ -1034,7 +1051,7 @@ export function EditDeckPage() {
           </div>
 
           {/* Sticky preview panel — far right */}
-          {!showGuide && <div className="w-[300px] shrink-0 hidden lg:block">
+          <div className="w-[300px] shrink-0 hidden lg:block">
             <div className="sticky top-[25vh]">
               {previewCard ? (
                 <div>
@@ -1071,7 +1088,7 @@ export function EditDeckPage() {
                 </div>
               )}
             </div>
-          </div>}
+          </div>
         </div>
 
         {/* Suggestions panel */}
