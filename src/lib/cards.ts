@@ -1,5 +1,10 @@
 export const TYPE_ORDER = ['Creature', 'Planeswalker', 'Battle', 'Sorcery', 'Instant', 'Enchantment', 'Artifact', 'Land', 'Other']
 
+/** Build a Scryfall art_crop CDN URL from a scryfall_id */
+export function scryfallArtCropUrl(scryfallId: string): string {
+  return `https://cards.scryfall.io/art_crop/front/${scryfallId[0]}/${scryfallId[1]}/${scryfallId}.jpg`
+}
+
 /** Height constants for card column stacking (in px) */
 const CARD_FULL_HEIGHT = 280
 const CARD_OVERLAP = 247

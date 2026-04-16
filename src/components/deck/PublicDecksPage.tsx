@@ -1,10 +1,11 @@
 import { useEffect, useRef, useReducer } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
+import { scryfallArtCropUrl } from '../../lib/cards'
 
 const PAGE_SIZE = 20
 
-type DisplayCard = { image_uris: { art_crop?: string; normal?: string } | null } | null
+type DisplayCard = { scryfall_id?: string; image_uris: { art_crop?: string; normal?: string } | null } | null
 
 type RawDeck = {
   id: string
@@ -65,8 +66,11 @@ const initialState: State = {
 }
 
 function artUrl(deck: PublicDeck): string | null {
-  const iu = deck.display_card?.image_uris
-  return iu?.art_crop ?? iu?.normal ?? null
+  const dc = deck.display_card
+  if (!dc) return null
+  if (dc.image_uris?.art_crop) return dc.image_uris.art_crop
+  if (dc.scryfall_id) return scryfallArtCropUrl(dc.scryfall_id)
+  return dc.image_uris?.normal ?? null
 }
 
 export function PublicDecksPage() {
@@ -84,7 +88,7 @@ export function PublicDecksPage() {
 
     const { data, error: err } = await supabase
       .from('decks')
-      .select('id, name, format, updated_at, display_card:cards!display_card_id(image_uris)')
+      .select('id, name, format, updated_at, display_card:cards!display_card_id(scryfall_id, image_uris)')
       .eq('is_public', true)
       .order('updated_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1)

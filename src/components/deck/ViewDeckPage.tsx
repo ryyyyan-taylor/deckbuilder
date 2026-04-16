@@ -3,6 +3,7 @@ import { useParams, Link } from 'react-router-dom'
 import { useDeck } from '../../hooks/useDeck'
 import type { Deck, DeckCard, Card } from '../../hooks/useDeck'
 import { DeckSection } from './DeckSection'
+import { scryfallArtCropUrl } from '../../lib/cards'
 import type { SortBy } from './DeckSection'
 import { StatsPanel } from './StatsPanel'
 import { useAuth } from '../../hooks/useAuth'
@@ -83,7 +84,10 @@ export function ViewDeckPage() {
   const displayArtCard = deck!.display_card_id
     ? deckCards.find((dc) => dc.card_id === deck!.display_card_id)?.card ?? null
     : null
-  const bannerArt = displayArtCard?.image_uris?.art_crop ?? displayArtCard?.image_uris?.normal ?? null
+  const bannerArt = displayArtCard?.image_uris?.art_crop
+    ?? (displayArtCard?.scryfall_id ? scryfallArtCropUrl(displayArtCard.scryfall_id) : null)
+    ?? displayArtCard?.image_uris?.normal
+    ?? null
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">

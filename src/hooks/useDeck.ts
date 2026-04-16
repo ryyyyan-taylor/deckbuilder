@@ -36,7 +36,7 @@ export interface Deck {
   created_at: string
   updated_at: string
   display_card_id: string | null
-  display_card?: { image_uris: { art_crop?: string; normal?: string } | null } | null
+  display_card?: { scryfall_id?: string; image_uris: { art_crop?: string; normal?: string } | null } | null
 }
 
 export interface DeckInput {
@@ -59,7 +59,7 @@ export function useDeck() {
     setError(null)
     const { data, error } = await supabase
       .from('decks')
-      .select('*, display_card:cards!display_card_id(image_uris)')
+      .select('*, display_card:cards!display_card_id(scryfall_id, image_uris)')
       .order('updated_at', { ascending: false })
     setLoading(false)
     if (error) {

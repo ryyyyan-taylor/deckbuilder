@@ -21,6 +21,7 @@ import { ResultsPanel } from './ResultsPanel'
 import { Toast } from '../Toast'
 import type { ToastItem } from '../Toast'
 import { useSandboxSideboardGuide } from '../../hooks/useSandboxSideboardGuide'
+import { scryfallArtCropUrl } from '../../lib/cards'
 import { SideboardGuidePanel } from './SideboardGuidePanel'
 
 const STATS_SECTION = 'Stats'
@@ -481,7 +482,10 @@ export function SandboxPage() {
   const sandboxArtCard = deckCards.find((dc) => dc.section === 'Commander')?.card
     ?? deckCards.find((dc) => dc.section === 'Mainboard')?.card
     ?? null
-  const bannerArt = sandboxArtCard?.image_uris?.art_crop ?? sandboxArtCard?.image_uris?.normal ?? null
+  const bannerArt = sandboxArtCard?.image_uris?.art_crop
+    ?? (sandboxArtCard?.scryfall_id ? scryfallArtCropUrl(sandboxArtCard.scryfall_id) : null)
+    ?? sandboxArtCard?.image_uris?.normal
+    ?? null
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">

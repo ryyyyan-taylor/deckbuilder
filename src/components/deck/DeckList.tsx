@@ -2,10 +2,14 @@ import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useDeck } from '../../hooks/useDeck'
 import type { Deck } from '../../hooks/useDeck'
+import { scryfallArtCropUrl } from '../../lib/cards'
 
 function artUrl(deck: Deck): string | null {
-  const iu = deck.display_card?.image_uris
-  return iu?.art_crop ?? iu?.normal ?? null
+  const dc = deck.display_card
+  if (!dc) return null
+  if (dc.image_uris?.art_crop) return dc.image_uris.art_crop
+  if (dc.scryfall_id) return scryfallArtCropUrl(dc.scryfall_id)
+  return dc.image_uris?.normal ?? null
 }
 
 export function DeckList() {

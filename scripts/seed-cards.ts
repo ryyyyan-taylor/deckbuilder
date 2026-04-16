@@ -61,6 +61,7 @@ function pickImageUris(card: ScryfallCard) {
     normal: uris.normal,
     large: uris.large,
     png: uris.png,
+    art_crop: uris.art_crop,
   };
 }
 

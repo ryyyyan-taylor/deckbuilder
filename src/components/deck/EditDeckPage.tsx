@@ -21,6 +21,7 @@ import { ResultsPanel } from './ResultsPanel'
 import { Toast } from '../Toast'
 import type { ToastItem } from '../Toast'
 import { useSideboardGuide } from '../../hooks/useSideboardGuide'
+import { scryfallArtCropUrl } from '../../lib/cards'
 import { SideboardGuidePanel } from './SideboardGuidePanel'
 
 const STATS_SECTION = 'Stats'
@@ -624,7 +625,10 @@ export function EditDeckPage() {
   const displayArtCard = deck?.display_card_id
     ? deckCards.find((dc) => dc.card_id === deck.display_card_id)?.card ?? null
     : null
-  const bannerArt = displayArtCard?.image_uris?.art_crop ?? displayArtCard?.image_uris?.normal ?? null
+  const bannerArt = displayArtCard?.image_uris?.art_crop
+    ?? (displayArtCard?.scryfall_id ? scryfallArtCropUrl(displayArtCard.scryfall_id) : null)
+    ?? displayArtCard?.image_uris?.normal
+    ?? null
 
   const displayCardOptions = [...new Map(
     deckCards
