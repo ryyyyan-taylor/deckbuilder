@@ -44,6 +44,7 @@ export function ComparePage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [previewCard, setPreviewCard] = useState<Card | null>(null)
+  const [viewMode, setViewMode] = useState<'stacks' | 'grid'>('stacks')
   const [result, setResult] = useState<{
     deckNames: string[]
     shared: CompareCard[]
@@ -447,9 +448,26 @@ export function ComparePage() {
         {result && (
           <div className="flex gap-6">
             <div className="flex-1 min-w-0 space-y-8">
+              <div className="flex justify-end">
+                <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
+                  <button
+                    onClick={() => setViewMode('stacks')}
+                    className={`px-3 py-1.5 rounded-l ${viewMode === 'stacks' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Stacks
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`px-3 py-1.5 rounded-r ${viewMode === 'grid' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Grid
+                  </button>
+                </div>
+              </div>
               <CompareSection
                 title="Shared"
                 cards={result.shared}
+                viewMode={viewMode}
                 onHoverCard={setPreviewCard}
                 onRightClick={targetSections.length > 0 ? (card, x, y) => setContextMenu({ x, y, card }) : undefined}
               />
@@ -458,6 +476,7 @@ export function ComparePage() {
                   key={i}
                   title={`Unique to ${u.name}`}
                   cards={u.cards}
+                  viewMode={viewMode}
                   onHoverCard={setPreviewCard}
                   onRightClick={targetSections.length > 0 ? (card, x, y) => setContextMenu({ x, y, card }) : undefined}
                 />
@@ -592,11 +611,13 @@ function DeckSearchInput({
 function CompareSection({
   title,
   cards,
+  viewMode = 'stacks',
   onHoverCard,
   onRightClick,
 }: {
   title: string
   cards: CompareCard[]
+  viewMode?: 'stacks' | 'grid'
   onHoverCard: (card: Card | null) => void
   onRightClick?: (card: Card, x: number, y: number) => void
 }) {
@@ -649,53 +670,86 @@ function CompareSection({
         </button>
       </div>
 
-      <div ref={containerRef} className="flex flex-wrap justify-center gap-10">
-        {packColumns(sortedGroups, maxColumns).map((column, colIdx) => (
-          <div key={colIdx} className="w-[180px] min-w-0 flex flex-col gap-4">
-            {column.map(({ type, cards: typeCards }) => (
-              <div key={type}>
-                <h4 className="text-xs font-medium text-gray-400 mb-2">
-                  {type}{' '}
-                  <span className="text-gray-600">({typeCards.length})</span>
-                </h4>
-                <div className="flex flex-col">
-                  {typeCards.map((cc, i) => (
-                    <div
-                      key={cc.card.id}
-                      className={`relative ${i > 0 ? 'mt-[-247px]' : ''}`}
-                      style={{ zIndex: i }}
-                    >
-                      <div
-                        className="w-[200px]"
-                        onMouseEnter={() => onHoverCard(cc.card)}
-                        onContextMenu={(e) => {
-                          if (!onRightClick) return
-                          e.preventDefault()
-                          onRightClick(cc.card, e.clientX, e.clientY)
-                        }}
-                      >
-                        {cc.card.image_uris?.normal ? (
-                          <img
-                            src={cc.card.image_uris.normal}
-                            alt={cc.card.name}
-                            className="w-full rounded-lg"
-                            loading="lazy"
-                            draggable={false}
-                          />
-                        ) : (
-                          <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
-                            {cc.card.name}
-                          </div>
-                        )}
-                      </div>
-                    </div>
-                  ))}
-                </div>
+      {viewMode === 'grid' ? (
+        <div className="flex flex-wrap gap-2">
+          {sortedGroups.flatMap(({ cards: typeCards }) =>
+            typeCards.map((cc) => (
+              <div
+                key={cc.card.id}
+                className="w-[120px] shrink-0"
+                onMouseEnter={() => onHoverCard(cc.card)}
+                onContextMenu={(e) => {
+                  if (!onRightClick) return
+                  e.preventDefault()
+                  onRightClick(cc.card, e.clientX, e.clientY)
+                }}
+              >
+                {cc.card.image_uris?.normal ? (
+                  <img
+                    src={cc.card.image_uris.normal}
+                    alt={cc.card.name}
+                    className="w-full rounded-lg"
+                    loading="lazy"
+                    draggable={false}
+                  />
+                ) : (
+                  <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
+                    {cc.card.name}
+                  </div>
+                )}
               </div>
-            ))}
-          </div>
-        ))}
-      </div>
+            ))
+          )}
+        </div>
+      ) : (
+        <div ref={containerRef} className="flex flex-wrap justify-center gap-10">
+          {packColumns(sortedGroups, maxColumns).map((column, colIdx) => (
+            <div key={colIdx} className="w-[180px] min-w-0 flex flex-col gap-4">
+              {column.map(({ type, cards: typeCards }) => (
+                <div key={type}>
+                  <h4 className="text-xs font-medium text-gray-400 mb-2">
+                    {type}{' '}
+                    <span className="text-gray-600">({typeCards.length})</span>
+                  </h4>
+                  <div className="flex flex-col">
+                    {typeCards.map((cc, i) => (
+                      <div
+                        key={cc.card.id}
+                        className={`relative ${i > 0 ? 'mt-[-247px]' : ''}`}
+                        style={{ zIndex: i }}
+                      >
+                        <div
+                          className="w-[200px]"
+                          onMouseEnter={() => onHoverCard(cc.card)}
+                          onContextMenu={(e) => {
+                            if (!onRightClick) return
+                            e.preventDefault()
+                            onRightClick(cc.card, e.clientX, e.clientY)
+                          }}
+                        >
+                          {cc.card.image_uris?.normal ? (
+                            <img
+                              src={cc.card.image_uris.normal}
+                              alt={cc.card.name}
+                              className="w-full rounded-lg"
+                              loading="lazy"
+                              draggable={false}
+                            />
+                          ) : (
+                            <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
+                              {cc.card.name}
+                            </div>
+                          )}
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              ))}
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }

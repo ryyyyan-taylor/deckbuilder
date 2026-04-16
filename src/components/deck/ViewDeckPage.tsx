@@ -4,7 +4,7 @@ import { useDeck } from '../../hooks/useDeck'
 import type { Deck, DeckCard, Card } from '../../hooks/useDeck'
 import { DeckSection } from './DeckSection'
 import { scryfallArtCropUrl } from '../../lib/cards'
-import type { SortBy } from './DeckSection'
+import type { SortBy, ViewMode } from './DeckSection'
 import { StatsPanel } from './StatsPanel'
 import { useAuth } from '../../hooks/useAuth'
 import { useSideboardGuide } from '../../hooks/useSideboardGuide'
@@ -20,6 +20,7 @@ export function ViewDeckPage() {
   const [deckCards, setDeckCards] = useState<DeckCard[]>([])
   const [previewCard, setPreviewCard] = useState<Card | null>(null)
   const [sortBy, setSortBy] = useState<SortBy>('name')
+  const [viewMode, setViewMode] = useState<ViewMode>('stacks')
   const [notFound, setNotFound] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
   const guide = useSideboardGuide()
@@ -92,7 +93,7 @@ export function ViewDeckPage() {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Art banner */}
-      <div className="relative bg-gray-800 overflow-hidden">
+      <div className="relative bg-gray-800 overflow-hidden min-h-[220px]">
         {bannerArt && (
           <>
             <img
@@ -100,50 +101,70 @@ export function ViewDeckPage() {
               alt=""
               className="absolute inset-0 w-full h-full object-cover object-right"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/85 to-gray-900/40" />
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/80 to-gray-900/20" />
           </>
         )}
-        <div className="relative mx-auto px-6 py-6 max-w-none">
-          <Link to="/" className="text-gray-400 hover:text-gray-300 text-sm">
+        <div className="relative px-6 py-5 flex flex-col justify-between min-h-[220px]">
+          {/* Top: back link */}
+          <Link to="/" className="text-gray-400 hover:text-gray-300 text-sm self-start">
             &larr; Public Decks
           </Link>
-          <h1 className="text-2xl font-bold mt-1">{deck!.name}</h1>
-          <div className="flex items-center gap-2 mt-1 flex-wrap">
-            {deck!.format && (
-              <span className="bg-gray-700/80 px-2 py-0.5 rounded text-xs text-gray-300">
-                {deck!.format}
-              </span>
-            )}
-            <span className="text-gray-400 text-sm">
-              {mainDeckCount} Main{sideboardCount > 0 && ` | ${sideboardCount} Sideboard`}{otherCount > 0 && ` | ${otherCount} Other`}
-            </span>
-          </div>
-          {deck!.description && (
-            <p className="text-gray-300 text-sm mt-2 max-w-xl">{deck!.description}</p>
-          )}
-          <div className="flex items-center gap-3 mt-4">
-            <div className="flex items-center bg-gray-800/80 border border-gray-700 rounded text-sm">
-              <button
-                onClick={() => setSortBy('name')}
-                className={`px-3 py-1.5 rounded-l ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-              >
-                Name
-              </button>
-              <button
-                onClick={() => setSortBy('cmc')}
-                className={`px-3 py-1.5 rounded-r ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-              >
-                Mana Value
-              </button>
+          {/* Bottom: deck info left, controls right */}
+          <div className="flex items-end justify-between gap-4">
+            <div className="min-w-0">
+              <h1 className="text-2xl font-bold">{deck!.name}</h1>
+              <div className="flex items-center gap-2 mt-1 flex-wrap">
+                {deck!.format && (
+                  <span className="bg-gray-700/80 px-2 py-0.5 rounded text-xs text-gray-300">
+                    {deck!.format}
+                  </span>
+                )}
+                <span className="text-gray-400 text-sm">
+                  {mainDeckCount} Main{sideboardCount > 0 && ` | ${sideboardCount} Sideboard`}{otherCount > 0 && ` | ${otherCount} Other`}
+                </span>
+              </div>
+              {deck!.description && (
+                <p className="text-gray-300 text-sm mt-1 max-w-xl">{deck!.description}</p>
+              )}
             </div>
-            {isOwner && (
-              <Link
-                to={`/decks/${deck!.id}/edit`}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium text-sm"
-              >
-                Edit Deck
-              </Link>
-            )}
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="flex items-center bg-gray-800/80 border border-gray-700 rounded text-sm">
+                <button
+                  onClick={() => setSortBy('name')}
+                  className={`px-3 py-1.5 rounded-l ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                >
+                  Name
+                </button>
+                <button
+                  onClick={() => setSortBy('cmc')}
+                  className={`px-3 py-1.5 rounded-r ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                >
+                  Mana Value
+                </button>
+              </div>
+              <div className="flex items-center bg-gray-800/80 border border-gray-700 rounded text-sm">
+                <button
+                  onClick={() => setViewMode('stacks')}
+                  className={`px-3 py-1.5 rounded-l ${viewMode === 'stacks' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                >
+                  Stacks
+                </button>
+                <button
+                  onClick={() => setViewMode('grid')}
+                  className={`px-3 py-1.5 rounded-r ${viewMode === 'grid' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                >
+                  Grid
+                </button>
+              </div>
+              {isOwner && (
+                <Link
+                  to={`/decks/${deck!.id}/edit`}
+                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium text-sm"
+                >
+                  Edit Deck
+                </Link>
+              )}
+            </div>
           </div>
         </div>
       </div>
@@ -189,6 +210,7 @@ export function ViewDeckPage() {
                       cards={cardsBySection[s]}
                       onHoverCard={setPreviewCard}
                       sortBy={sortBy}
+                      viewMode={viewMode}
                       readOnly
                     />
                     {guide.matchups.length > 0 && (
@@ -207,6 +229,7 @@ export function ViewDeckPage() {
                     cards={cardsBySection[s]}
                     onHoverCard={setPreviewCard}
                     sortBy={sortBy}
+                    viewMode={viewMode}
                     readOnly
                   />
                 )
