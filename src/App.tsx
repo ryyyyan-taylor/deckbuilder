@@ -2,12 +2,15 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { AuthContext, useAuthProvider } from './hooks/useAuth'
 import { AuthForm } from './components/auth/AuthForm'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
+import { NavLayout } from './components/layout/NavLayout'
+import { PublicDecksPage } from './components/deck/PublicDecksPage'
 import { DeckList } from './components/deck/DeckList'
 import { DeckForm } from './components/deck/DeckForm'
 import { EditDeckPage } from './components/deck/EditDeckPage'
 import { ViewDeckPage } from './components/deck/ViewDeckPage'
 import { ComparePage } from './components/deck/ComparePage'
 import { SandboxPage } from './components/deck/SandboxPage'
+import { UtilitiesPage } from './components/deck/UtilitiesPage'
 import { useDeck } from './hooks/useDeck'
 import type { DeckInput } from './hooks/useDeck'
 import { useAuth } from './hooks/useAuth'
@@ -32,7 +35,7 @@ function NewDeckPage() {
   )
 }
 
-function LandingRedirect() {
+function AuthRedirect({ mode }: { mode: 'login' | 'signup' }) {
   const { user, loading } = useAuth()
 
   if (loading) {
@@ -43,7 +46,8 @@ function LandingRedirect() {
     )
   }
 
-  return <Navigate to={user ? '/decks' : '/login'} replace />
+  if (user) return <Navigate to="/" replace />
+  return <AuthForm mode={mode} />
 }
 
 function App() {
@@ -53,17 +57,30 @@ function App() {
     <AuthContext.Provider value={auth}>
       <BrowserRouter>
         <Routes>
-          <Route path="/" element={<LandingRedirect />} />
-          <Route path="/login" element={<AuthForm mode="login" />} />
-          <Route path="/signup" element={<AuthForm mode="signup" />} />
+          {/* Public deck view — no nav chrome */}
           <Route path="/deck/:id" element={<ViewDeckPage />} />
+
+          {/* Auth pages — redirect to / if already logged in */}
+          <Route path="/login" element={<AuthRedirect mode="login" />} />
+          <Route path="/signup" element={<AuthRedirect mode="signup" />} />
+
+          {/* Deck editor — no nav chrome */}
           <Route element={<ProtectedRoute />}>
-            <Route path="/decks" element={<DeckList />} />
             <Route path="/decks/new" element={<NewDeckPage />} />
             <Route path="/decks/:id/edit" element={<EditDeckPage />} />
+          </Route>
+
+          {/* Main nav layout */}
+          <Route element={<NavLayout />}>
+            <Route path="/" element={<PublicDecksPage />} />
+            <Route path="/utilities" element={<UtilitiesPage />} />
             <Route path="/compare" element={<ComparePage />} />
             <Route path="/sandbox" element={<SandboxPage />} />
+            <Route element={<ProtectedRoute />}>
+              <Route path="/decks" element={<DeckList />} />
+            </Route>
           </Route>
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

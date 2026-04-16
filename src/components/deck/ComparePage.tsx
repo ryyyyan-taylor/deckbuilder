@@ -35,9 +35,10 @@ export function ComparePage() {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
   const initialDeckId = searchParams.get('deck') ?? ''
+  const defaultType = (withId = false): Slot['type'] => (withId || user ? 'saved' : 'moxfield')
   const [slots, setSlots] = useState<Slot[]>([
-    { type: 'saved', deckId: initialDeckId, url: '', text: '' },
-    { type: 'saved', deckId: '', url: '', text: '' },
+    { type: defaultType(!!initialDeckId), deckId: initialDeckId, url: '', text: '' },
+    { type: defaultType(), deckId: '', url: '', text: '' },
   ])
   const [savedDecks, setSavedDecks] = useState<Deck[]>([])
   const [loading, setLoading] = useState(false)
@@ -130,7 +131,7 @@ export function ComparePage() {
     )
   }
 
-  const addSlot = () => setSlots((prev) => [...prev, { type: 'saved', deckId: '', url: '', text: '' }])
+  const addSlot = () => setSlots((prev) => [...prev, { type: defaultType(), deckId: '', url: '', text: '' }])
 
   const removeSlot = (index: number) => {
     setSlots((prev) => prev.filter((_, i) => i !== index))
@@ -362,7 +363,7 @@ export function ComparePage() {
       <div className="px-6 py-8">
         <div className="flex items-center gap-4 mb-6">
           <Link
-            to="/decks"
+            to="/utilities"
             className="text-gray-400 hover:text-white text-sm"
           >
             &larr; Back
@@ -379,7 +380,7 @@ export function ComparePage() {
                     onChange={(e) => updateSlotType(i, e.target.value as Slot['type'])}
                     className="w-28 shrink-0 bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm focus:outline-none focus:border-blue-500"
                   >
-                    <option value="saved">My Deck</option>
+                    {user && <option value="saved">My Deck</option>}
                     <option value="moxfield">Moxfield</option>
                     <option value="text">Text</option>
                   </select>

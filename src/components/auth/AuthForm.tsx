@@ -28,7 +28,7 @@ export function AuthForm({ mode }: { mode: 'login' | 'signup' }) {
     if (error) {
       setError(error.message)
     } else {
-      navigate('/decks')
+      navigate('/')
     }
   }
 
