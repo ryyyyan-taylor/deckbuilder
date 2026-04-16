@@ -66,8 +66,13 @@ export function useDeck() {
       setError(error.message)
       return []
     }
-    setDecks(data as Deck[])
-    return data as Deck[]
+    // Normalize display_card: Supabase may return it as an array for FK joins
+    const decksData = ((data ?? []) as Record<string, unknown>[]).map((d) => ({
+      ...d,
+      display_card: Array.isArray(d.display_card) ? (d.display_card[0] ?? null) : d.display_card,
+    })) as Deck[]
+    setDecks(decksData)
+    return decksData
   }
 
   const fetchDeck = async (id: string) => {

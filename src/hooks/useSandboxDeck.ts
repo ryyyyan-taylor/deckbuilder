@@ -16,6 +16,7 @@ const DEFAULT_DECK: Deck = {
   sections: ['Mainboard', 'Stats', 'Test'],
   created_at: new Date().toISOString(),
   updated_at: new Date().toISOString(),
+  display_card_id: null,
 }
 
 function loadFromStorage(): { deck: Deck; cards: DeckCard[] } {

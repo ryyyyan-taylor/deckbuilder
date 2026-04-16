@@ -6,6 +6,14 @@ const PAGE_SIZE = 20
 
 type DisplayCard = { image_uris: { art_crop?: string; normal?: string } | null } | null
 
+type RawDeck = {
+  id: string
+  name: string
+  format: string | null
+  updated_at: string
+  display_card: DisplayCard | DisplayCard[]
+}
+
 type PublicDeck = {
   id: string
   name: string
@@ -86,7 +94,11 @@ export function PublicDecksPage() {
       return
     }
 
-    const rows = data as PublicDeck[]
+    // Normalize display_card: Supabase may return it as an array for FK joins
+    const rows: PublicDeck[] = (data as RawDeck[]).map((d) => ({
+      ...d,
+      display_card: Array.isArray(d.display_card) ? (d.display_card[0] ?? null) : d.display_card,
+    }))
     offsetRef.current = offset + rows.length
     dispatch({ type: 'FETCH_SUCCESS', rows, append })
   }
