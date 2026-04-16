@@ -6,11 +6,13 @@ import { DeckSection } from './DeckSection'
 import { scryfallArtCropUrl } from '../../lib/cards'
 import type { SortBy, ViewMode } from './DeckSection'
 import { StatsPanel } from './StatsPanel'
+import { TestPanel } from './TestPanel'
 import { useAuth } from '../../hooks/useAuth'
 import { useSideboardGuide } from '../../hooks/useSideboardGuide'
 import { SideboardGuidePanel } from './SideboardGuidePanel'
 
 const STATS_SECTION = 'Stats'
+const TEST_SECTION = 'Test'
 
 export function ViewDeckPage() {
   const { id } = useParams<{ id: string }>()
@@ -68,7 +70,7 @@ export function ViewDeckPage() {
   }
 
   const sections = deck!.sections ?? ['Mainboard']
-  const cardSections = sections.filter((s) => s !== STATS_SECTION)
+  const cardSections = sections.filter((s) => s !== STATS_SECTION && s !== TEST_SECTION)
   const cardsBySection = cardSections.reduce<Record<string, DeckCard[]>>((acc, s) => {
     acc[s] = deckCards.filter((dc) => dc.section === s)
     return acc
@@ -177,6 +179,8 @@ export function ViewDeckPage() {
               {sections.map((s) =>
                 s === STATS_SECTION ? (
                   <StatsPanel key={s} deckCards={deckCards} />
+                ) : s === TEST_SECTION ? (
+                  <TestPanel key={s} deckCards={deckCards} />
                 ) : s === 'Sideboard' && showGuide ? (
                   <div key={s} className="rounded border border-gray-700 bg-gray-800/50 p-4">
                     <div className="flex items-center justify-between mb-4">
