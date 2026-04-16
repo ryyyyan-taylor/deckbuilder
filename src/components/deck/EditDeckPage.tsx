@@ -870,6 +870,13 @@ export function EditDeckPage() {
         </div>
       </div>
 
+      {/* Description */}
+      {deck!.description && !showEditForm && (
+        <div className="px-3 py-3 md:px-6 border-b border-gray-800">
+          <p className="text-gray-300 text-sm leading-relaxed max-w-3xl">{deck!.description}</p>
+        </div>
+      )}
+
       {/* Page content */}
       <div className="px-3 py-4 md:px-6">
         {/* Edit form (collapsible) */}

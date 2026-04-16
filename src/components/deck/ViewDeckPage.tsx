@@ -125,9 +125,6 @@ export function ViewDeckPage() {
                   {mainDeckCount} Main{sideboardCount > 0 && ` | ${sideboardCount} Sideboard`}{otherCount > 0 && ` | ${otherCount} Other`}
                 </span>
               </div>
-              {deck!.description && (
-                <p className="text-gray-300 text-sm mt-1 max-w-xl">{deck!.description}</p>
-              )}
             </div>
             <div className="flex items-center gap-2 shrink-0">
               <div className="flex items-center bg-gray-800/80 border border-gray-700 rounded text-sm">
@@ -170,6 +167,13 @@ export function ViewDeckPage() {
           </div>
         </div>
       </div>
+
+      {/* Description */}
+      {deck!.description && (
+        <div className="px-6 py-4 border-b border-gray-800">
+          <p className="text-gray-300 text-sm leading-relaxed max-w-3xl">{deck!.description}</p>
+        </div>
+      )}
 
       {/* Two-column layout: sections + preview */}
       <div className="mx-auto px-6 py-6">
