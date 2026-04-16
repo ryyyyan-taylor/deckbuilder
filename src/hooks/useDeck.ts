@@ -13,7 +13,7 @@ export interface Card {
   color_identity: string[]
   set_code: string | null
   oracle_text: string | null
-  image_uris: { small: string; normal: string; large: string; png: string } | null
+  image_uris: { small: string; normal: string; large: string; png: string; art_crop?: string } | null
 }
 
 export interface DeckCard {
@@ -35,6 +35,8 @@ export interface Deck {
   sections: string[]
   created_at: string
   updated_at: string
+  display_card_id: string | null
+  display_card?: { image_uris: { art_crop?: string; normal?: string } | null } | null
 }
 
 export interface DeckInput {
@@ -43,6 +45,7 @@ export interface DeckInput {
   description: string
   is_public: boolean
   sections?: string[]
+  display_card_id?: string | null
 }
 
 export function useDeck() {
@@ -56,7 +59,7 @@ export function useDeck() {
     setError(null)
     const { data, error } = await supabase
       .from('decks')
-      .select('*')
+      .select('*, display_card:cards!display_card_id(image_uris)')
       .order('updated_at', { ascending: false })
     setLoading(false)
     if (error) {

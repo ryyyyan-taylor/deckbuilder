@@ -478,11 +478,28 @@ export function SandboxPage() {
   )
   const otherCount = countForSections(otherSectionNames)
 
+  const sandboxArtCard = deckCards.find((dc) => dc.section === 'Commander')?.card
+    ?? deckCards.find((dc) => dc.section === 'Mainboard')?.card
+    ?? null
+  const bannerArt = sandboxArtCard?.image_uris?.art_crop ?? sandboxArtCard?.image_uris?.normal ?? null
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <div className="mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+      {/* Art banner */}
+      <div className="relative bg-gray-800 overflow-hidden">
+        {bannerArt && (
+          <>
+            <img
+              src={bannerArt}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover object-right"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/85 to-gray-900/40" />
+          </>
+        )}
+        <div className="relative px-6 py-6">
+          {/* Header */}
+          <div className="flex items-center justify-between">
           <div>
             <Link to="/decks" className="text-gray-400 hover:text-gray-300 text-sm">
               &larr; Back to decks
@@ -578,8 +595,12 @@ export function SandboxPage() {
               Reset
             </button>
           </div>
+          </div>
         </div>
+      </div>
 
+      {/* Page content */}
+      <div className="px-6 py-4">
         {/* Edit form (collapsible) */}
         {showEditForm && (
           <div className="mb-6 p-4 bg-gray-800 border border-gray-700 rounded">

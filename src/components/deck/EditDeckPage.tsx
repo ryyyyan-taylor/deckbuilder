@@ -147,6 +147,21 @@ export function EditDeckPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
+  // Auto-set display card for commander decks that have a commander but no display card
+  useEffect(() => {
+    if (!deck || !id) return
+    if (deck.display_card_id) return
+    if (!['Commander', 'cEDH', 'Duel Commander'].includes(deck.format ?? '')) return
+    if (deckCards.length === 0) return
+    const commanderCard = deckCards.find((dc) => dc.section === 'Commander')
+    if (!commanderCard) return
+    updateDeck(id, { display_card_id: commanderCard.card_id }).then((result) => {
+      if (result) setDeck(result)
+    })
+  // updateDeck is not memoized — adding it would cause infinite re-renders
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, deck?.display_card_id, deckCards.length])
+
   const updateSections = async (newSections: string[]) => {
     if (!id || !deck) return
     const result = await updateDeck(id, { sections: newSections })
@@ -606,11 +621,34 @@ export function EditDeckPage() {
   const otherSectionNames = cardSections.filter((s) => !['Mainboard', 'Commander', 'Sideboard'].includes(s))
   const otherCount = countForSections(otherSectionNames)
 
+  const displayArtCard = deck?.display_card_id
+    ? deckCards.find((dc) => dc.card_id === deck.display_card_id)?.card ?? null
+    : null
+  const bannerArt = displayArtCard?.image_uris?.art_crop ?? displayArtCard?.image_uris?.normal ?? null
+
+  const displayCardOptions = [...new Map(
+    deckCards
+      .filter((dc) => ['Commander', 'Mainboard'].includes(dc.section))
+      .map((dc) => [dc.card_id, { card_id: dc.card_id, name: dc.card?.name ?? 'Unknown' }])
+  ).values()].sort((a, b) => a.name.localeCompare(b.name))
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <div className="mx-auto px-3 py-4 md:px-6 md:py-8">
-        {/* Header */}
-        <div className="flex items-start justify-between mb-6 gap-2">
+      {/* Art banner */}
+      <div className="relative bg-gray-800 overflow-hidden">
+        {bannerArt && (
+          <>
+            <img
+              src={bannerArt}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover object-right"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/85 to-gray-900/40" />
+          </>
+        )}
+        <div className="relative px-3 py-4 md:px-6 md:py-4">
+          {/* Header */}
+          <div className="flex items-start justify-between gap-2">
           <div className="min-w-0">
             <Link to="/decks" className="text-gray-400 hover:text-gray-300 text-sm">
               &larr; Back to decks
@@ -824,8 +862,12 @@ export function EditDeckPage() {
               </div>
             )}
           </div>
+          </div>
         </div>
+      </div>
 
+      {/* Page content */}
+      <div className="px-3 py-4 md:px-6">
         {/* Edit form (collapsible) */}
         {showEditForm && (
           <div className="mb-6 p-4 bg-gray-800 border border-gray-700 rounded">
@@ -834,6 +876,26 @@ export function EditDeckPage() {
               onSubmit={handleUpdateDeck}
               onCancel={() => setShowEditForm(false)}
             />
+            {/* Display card picker */}
+            <div className="mt-4 pt-4 border-t border-gray-700">
+              <label className="block text-sm font-medium text-gray-300 mb-1">Display Card</label>
+              <p className="text-xs text-gray-500 mb-2">Card art shown on listings and the page banner.</p>
+              <select
+                value={deck!.display_card_id ?? ''}
+                onChange={(e) => {
+                  const cardId = e.target.value || null
+                  void updateDeck(id!, { display_card_id: cardId }).then((result) => {
+                    if (result) setDeck(result)
+                  })
+                }}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-sm"
+              >
+                <option value="">(None)</option>
+                {displayCardOptions.map(({ card_id, name }) => (
+                  <option key={card_id} value={card_id}>{name}</option>
+                ))}
+              </select>
+            </div>
           </div>
         )}
 

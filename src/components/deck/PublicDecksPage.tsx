@@ -4,11 +4,14 @@ import { supabase } from '../../lib/supabase'
 
 const PAGE_SIZE = 20
 
+type DisplayCard = { image_uris: { art_crop?: string; normal?: string } | null } | null
+
 type PublicDeck = {
   id: string
   name: string
   format: string | null
   updated_at: string
+  display_card: DisplayCard
 }
 
 type State = {
@@ -53,6 +56,11 @@ const initialState: State = {
   error: null,
 }
 
+function artUrl(deck: PublicDeck): string | null {
+  const iu = deck.display_card?.image_uris
+  return iu?.art_crop ?? iu?.normal ?? null
+}
+
 export function PublicDecksPage() {
   const [state, dispatch] = useReducer(reducer, initialState)
   const { decks, loading, loadingMore, hasMore, error } = state
@@ -68,7 +76,7 @@ export function PublicDecksPage() {
 
     const { data, error: err } = await supabase
       .from('decks')
-      .select('id, name, format, updated_at')
+      .select('id, name, format, updated_at, display_card:cards!display_card_id(image_uris)')
       .eq('is_public', true)
       .order('updated_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1)
@@ -91,7 +99,6 @@ export function PublicDecksPage() {
   useEffect(() => {
     const el = sentinelRef.current
     if (!el) return
-
     const observer = new IntersectionObserver(
       (entries) => {
         if (entries[0].isIntersecting && hasMore && !loadingMore && !loading) {
@@ -100,13 +107,12 @@ export function PublicDecksPage() {
       },
       { rootMargin: '200px' }
     )
-
     observer.observe(el)
     return () => observer.disconnect()
   }, [hasMore, loadingMore, loading])
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto px-4 py-8">
       <h1 className="text-xl font-semibold mb-6">Public Decks</h1>
 
       {error && (
@@ -121,29 +127,37 @@ export function PublicDecksPage() {
         <p className="text-gray-400">No public decks yet.</p>
       ) : (
         <>
-          <div className="space-y-2">
-            {decks.map((deck) => (
-              <Link
-                key={deck.id}
-                to={`/deck/${deck.id}`}
-                className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded px-4 py-3 hover:border-gray-500 transition-colors"
-              >
-                <div className="min-w-0">
-                  <span className="text-blue-400 font-medium">{deck.name}</span>
-                  {deck.format && (
-                    <span className="ml-2 text-xs bg-gray-700 text-gray-300 px-2 py-0.5 rounded">
-                      {deck.format}
-                    </span>
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+            {decks.map((deck) => {
+              const art = artUrl(deck)
+              return (
+                <Link
+                  key={deck.id}
+                  to={`/deck/${deck.id}`}
+                  className="relative block rounded-lg overflow-hidden aspect-video bg-gray-800 hover:ring-2 hover:ring-blue-500 transition-all"
+                >
+                  {art ? (
+                    <img
+                      src={art}
+                      alt={deck.name}
+                      className="absolute inset-0 w-full h-full object-cover"
+                    />
+                  ) : (
+                    <div className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-900" />
                   )}
-                </div>
-                <span className="text-sm text-gray-400 shrink-0 ml-4">
-                  {new Date(deck.updated_at).toLocaleDateString()}
-                </span>
-              </Link>
-            ))}
+                  <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
+                  <div className="absolute bottom-0 left-0 right-0 p-3">
+                    <div className="font-semibold text-white text-sm leading-tight">{deck.name}</div>
+                    {deck.format && (
+                      <div className="text-xs text-gray-300 mt-0.5">{deck.format}</div>
+                    )}
+                  </div>
+                </Link>
+              )
+            })}
           </div>
 
-          <div ref={sentinelRef} className="h-8 flex items-center justify-center mt-4">
+          <div ref={sentinelRef} className="h-8 flex items-center justify-center mt-6">
             {loadingMore && <p className="text-gray-400 text-sm">Loading more...</p>}
             {!hasMore && decks.length > 0 && (
               <p className="text-gray-600 text-sm">All decks loaded</p>

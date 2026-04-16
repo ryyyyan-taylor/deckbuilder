@@ -80,32 +80,45 @@ export function ViewDeckPage() {
   const otherCount = countForSections(otherSectionNames)
   const isOwner = user?.id === deck!.user_id
 
+  const displayArtCard = deck!.display_card_id
+    ? deckCards.find((dc) => dc.card_id === deck!.display_card_id)?.card ?? null
+    : null
+  const bannerArt = displayArtCard?.image_uris?.art_crop ?? displayArtCard?.image_uris?.normal ?? null
+
   return (
     <div className="min-h-screen bg-gray-900 text-white">
-      <div className="mx-auto px-6 py-8">
-        {/* Header */}
-        <div className="flex items-center justify-between mb-6">
-          <div>
-            <Link to="/decks" className="text-gray-400 hover:text-gray-300 text-sm">
-              &larr; Back to decks
-            </Link>
-            <h1 className="text-2xl font-bold mt-1">{deck!.name}</h1>
-            <div className="flex items-center gap-2 mt-1">
-              {deck!.format && (
-                <span className="bg-gray-700 px-2 py-0.5 rounded text-xs text-gray-300">
-                  {deck!.format}
-                </span>
-              )}
-              <span className="text-gray-500 text-sm">
-                {mainDeckCount} Main{sideboardCount > 0 && ` | ${sideboardCount} Sideboard`}{otherCount > 0 && ` | ${otherCount} Other`}
+      {/* Art banner */}
+      <div className="relative bg-gray-800 overflow-hidden">
+        {bannerArt && (
+          <>
+            <img
+              src={bannerArt}
+              alt=""
+              className="absolute inset-0 w-full h-full object-cover object-right"
+            />
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/85 to-gray-900/40" />
+          </>
+        )}
+        <div className="relative mx-auto px-6 py-6 max-w-none">
+          <Link to="/" className="text-gray-400 hover:text-gray-300 text-sm">
+            &larr; Public Decks
+          </Link>
+          <h1 className="text-2xl font-bold mt-1">{deck!.name}</h1>
+          <div className="flex items-center gap-2 mt-1 flex-wrap">
+            {deck!.format && (
+              <span className="bg-gray-700/80 px-2 py-0.5 rounded text-xs text-gray-300">
+                {deck!.format}
               </span>
-            </div>
-            {deck!.description && (
-              <p className="text-gray-400 text-sm mt-2">{deck!.description}</p>
             )}
+            <span className="text-gray-400 text-sm">
+              {mainDeckCount} Main{sideboardCount > 0 && ` | ${sideboardCount} Sideboard`}{otherCount > 0 && ` | ${otherCount} Other`}
+            </span>
           </div>
-          <div className="flex items-center gap-3">
-            <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
+          {deck!.description && (
+            <p className="text-gray-300 text-sm mt-2 max-w-xl">{deck!.description}</p>
+          )}
+          <div className="flex items-center gap-3 mt-4">
+            <div className="flex items-center bg-gray-800/80 border border-gray-700 rounded text-sm">
               <button
                 onClick={() => setSortBy('name')}
                 className={`px-3 py-1.5 rounded-l ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
@@ -129,8 +142,10 @@ export function ViewDeckPage() {
             )}
           </div>
         </div>
+      </div>
 
-        {/* Two-column layout: sections + preview */}
+      {/* Two-column layout: sections + preview */}
+      <div className="mx-auto px-6 py-6">
         <div className="flex gap-6">
           <div className="flex-1 min-w-0">
             <div className="space-y-4">

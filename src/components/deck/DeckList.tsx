@@ -1,6 +1,12 @@
 import { useEffect, useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { useDeck } from '../../hooks/useDeck'
+import type { Deck } from '../../hooks/useDeck'
+
+function artUrl(deck: Deck): string | null {
+  const iu = deck.display_card?.image_uris
+  return iu?.art_crop ?? iu?.normal ?? null
+}
 
 export function DeckList() {
   const { decks, loading, error, fetchDecks, deleteDeck } = useDeck()
@@ -41,7 +47,7 @@ export function DeckList() {
   }, [decks, formatFilter])
 
   return (
-    <div className="max-w-3xl mx-auto px-4 py-8">
+    <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold">My Decks</h1>
         <Link
@@ -63,7 +69,7 @@ export function DeckList() {
       ) : decks.length === 0 ? (
         <p className="text-gray-400">No decks yet. Create one to get started!</p>
       ) : formatFilter ? (
-        /* Filtered deck list for a specific format */
+        /* Filtered deck list for a specific format — art grid */
         <>
           <button
             onClick={() => setSearchParams({})}
@@ -71,35 +77,43 @@ export function DeckList() {
           >
             &larr; All Formats
           </button>
-          <h2 className="text-lg font-semibold mb-3">{formatFilter}</h2>
+          <h2 className="text-lg font-semibold mb-4">{formatFilter}</h2>
           {filteredDecks.length === 0 ? (
             <p className="text-gray-400">No decks in this format.</p>
           ) : (
-            <div className="space-y-2">
-              {filteredDecks.map((deck) => (
-                <div
-                  key={deck.id}
-                  className="flex items-center justify-between bg-gray-800 border border-gray-700 rounded px-4 py-3"
-                >
-                  <div className="min-w-0">
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredDecks.map((deck) => {
+                const art = artUrl(deck)
+                return (
+                  <div key={deck.id} className="relative group rounded-lg overflow-hidden aspect-video bg-gray-800">
+                    {art ? (
+                      <img
+                        src={art}
+                        alt={deck.name}
+                        className="absolute inset-0 w-full h-full object-cover"
+                      />
+                    ) : (
+                      <div className="absolute inset-0 bg-gradient-to-br from-gray-700 to-gray-900" />
+                    )}
+                    <div className="absolute inset-0 bg-gradient-to-t from-black/80 via-black/20 to-transparent" />
                     <Link
                       to={`/decks/${deck.id}/edit`}
-                      className="text-blue-400 hover:underline font-medium"
+                      className="absolute inset-0 flex flex-col justify-end p-3 hover:ring-2 hover:ring-blue-500 rounded-lg transition-all"
                     >
-                      {deck.name}
+                      <div className="font-semibold text-white text-sm leading-tight">{deck.name}</div>
+                      <div className="text-xs text-gray-300 mt-0.5">
+                        {new Date(deck.updated_at).toLocaleDateString()}
+                      </div>
                     </Link>
-                    <div className="text-sm text-gray-400 mt-1">
-                      {new Date(deck.updated_at).toLocaleDateString()}
-                    </div>
+                    <button
+                      onClick={() => handleDelete(deck.id, deck.name)}
+                      className="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity bg-black/60 hover:bg-red-900/80 text-red-400 hover:text-red-200 text-xs px-2 py-1 rounded"
+                    >
+                      Delete
+                    </button>
                   </div>
-                  <button
-                    onClick={() => handleDelete(deck.id, deck.name)}
-                    className="text-red-400 hover:text-red-300 text-sm ml-4 shrink-0"
-                  >
-                    Delete
-                  </button>
-                </div>
-              ))}
+                )
+              })}
             </div>
           )}
         </>
