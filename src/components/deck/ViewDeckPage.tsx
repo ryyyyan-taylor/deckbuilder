@@ -184,7 +184,7 @@ export function ViewDeckPage() {
                 s === STATS_SECTION ? (
                   <StatsPanel key={s} deckCards={deckCards} />
                 ) : s === TEST_SECTION ? (
-                  <TestPanel key={s} deckCards={deckCards} />
+                  <TestPanel key={s} deckCards={deckCards} onHoverCard={setPreviewCard} />
                 ) : s === 'Sideboard' && showGuide ? (
                   <div key={s} className="rounded border border-gray-700 bg-gray-800/50 p-4">
                     <div className="flex items-center justify-between mb-4">
