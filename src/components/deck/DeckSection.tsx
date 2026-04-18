@@ -163,7 +163,7 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
           Add cards from search
         </p>
       ) : (
-        <div ref={containerRef} className="flex flex-wrap justify-start md:justify-center gap-10">
+        <div ref={containerRef} className="flex flex-wrap justify-center gap-10">
           {packColumns(sortedGroups, maxColumns).map((column, colIdx) => (
             <div key={colIdx} className="w-[180px] min-w-0 flex flex-col gap-4">
               {column.map(({ type, cards: typeCards }) => {

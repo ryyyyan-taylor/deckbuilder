@@ -76,6 +76,8 @@ export function TestPanel({ deckCards, onHoverCard }: TestPanelProps) {
     dispatch({ type: 'DRAW_ONE' })
   }
 
+  const isMobileLayout = containerWidth > 0 && containerWidth < 640
+
   const n = hand.length
   const slotWidth =
     n <= 1 || containerWidth === 0
@@ -98,36 +100,65 @@ export function TestPanel({ deckCards, onHoverCard }: TestPanelProps) {
         <p className="text-gray-600 text-xs py-4">Add cards to Mainboard to test hands</p>
       ) : (
         <>
-          {/* Hand display — cards overlap as hand grows */}
+          {/* Hand display */}
           <div ref={containerRef} className="w-full mb-6">
-          <div className="flex" style={{ minHeight: '280px' }}>
-            {hand.map((card, i) => (
-              <div
-                key={i}
-                className="relative shrink-0"
-                style={{
-                  width: `${CARD_WIDTH}px`,
-                  marginRight: i < hand.length - 1 ? `${marginRight}px` : '0',
-                  zIndex: i,
-                }}
-                onMouseEnter={() => onHoverCard?.(card)}
-                onMouseLeave={() => onHoverCard?.(null)}
-              >
-                {card.image_uris?.normal ? (
-                  <img
-                    src={card.image_uris.normal}
-                    alt={card.name}
-                    className="w-full rounded-lg shadow-lg"
-                    draggable={false}
-                  />
-                ) : (
-                  <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
-                    {card.name}
-                  </div>
-                )}
+            {isMobileLayout ? (
+              // Mobile: vertical stacked layout (like deck stacks view)
+              <div className="flex justify-center">
+                <div className="w-[200px] flex flex-col">
+                  {hand.map((card, i) => (
+                    <div
+                      key={i}
+                      className={`relative ${i > 0 ? 'mt-[-247px]' : ''}`}
+                      style={{ zIndex: i }}
+                    >
+                      {card.image_uris?.normal ? (
+                        <img
+                          src={card.image_uris.normal}
+                          alt={card.name}
+                          className="w-full rounded-lg shadow-lg"
+                          draggable={false}
+                        />
+                      ) : (
+                        <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
+                          {card.name}
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
               </div>
-            ))}
-          </div>
+            ) : (
+              // Desktop: horizontal overlap layout
+              <div className="flex" style={{ minHeight: '280px' }}>
+                {hand.map((card, i) => (
+                  <div
+                    key={i}
+                    className="relative shrink-0"
+                    style={{
+                      width: `${CARD_WIDTH}px`,
+                      marginRight: i < hand.length - 1 ? `${marginRight}px` : '0',
+                      zIndex: i,
+                    }}
+                    onMouseEnter={() => onHoverCard?.(card)}
+                    onMouseLeave={() => onHoverCard?.(null)}
+                  >
+                    {card.image_uris?.normal ? (
+                      <img
+                        src={card.image_uris.normal}
+                        alt={card.name}
+                        className="w-full rounded-lg shadow-lg"
+                        draggable={false}
+                      />
+                    ) : (
+                      <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
+                        {card.name}
+                      </div>
+                    )}
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
 
           <div className="flex items-center gap-3">

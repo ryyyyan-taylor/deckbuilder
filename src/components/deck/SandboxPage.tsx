@@ -797,7 +797,7 @@ export function SandboxPage() {
                       />
                       <button
                         onClick={() => setShowGuide(true)}
-                        className="absolute top-3 right-4 text-xs px-2.5 py-1 bg-teal-900/70 hover:bg-teal-800 text-teal-300 rounded border border-teal-700/50"
+                        className="absolute top-3 right-4 px-3 py-1.5 bg-teal-700 hover:bg-teal-600 text-white rounded text-sm font-medium"
                       >
                         Guide
                       </button>
@@ -968,17 +968,33 @@ export function SandboxPage() {
         const otherSections = cardSections.filter(s => s !== live.section)
         return createPortal(
           <div
-            className="fixed inset-0 bg-black/50 z-50 flex items-end text-white md:hidden"
+            className="fixed inset-0 bg-black/70 z-50 flex flex-col items-center justify-end text-white md:hidden"
             onClick={() => setActiveMobileCard(null)}
           >
+            {/* Card image centered above sheet */}
+            <div className="flex-1 flex items-center justify-center pointer-events-none pb-4 px-4">
+              {live.card?.image_uris?.normal ? (
+                <img
+                  src={live.card.image_uris.normal}
+                  alt={live.card?.name ?? 'Card'}
+                  className="w-[180px] rounded-xl shadow-2xl"
+                  draggable={false}
+                />
+              ) : (
+                <div className="w-[180px] aspect-[2.5/3.5] bg-gray-700 rounded-xl flex items-center justify-center text-sm text-gray-300 p-2 text-center shadow-2xl">
+                  {live.card?.name}
+                </div>
+              )}
+            </div>
+            {/* Bottom sheet */}
             <div
-              className="bg-gray-800 border-t border-gray-600 rounded-t-2xl w-full"
+              className="bg-gray-800 border-t border-gray-600 rounded-t-2xl w-full max-h-[65vh] flex flex-col"
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-center pt-3 pb-1">
+              <div className="flex justify-center pt-3 pb-1 shrink-0">
                 <div className="w-10 h-1 bg-gray-600 rounded-full" />
               </div>
-              <div className="px-4 pb-8">
+              <div className="px-4 pb-8 overflow-y-auto">
                 <p className="text-sm font-semibold text-center text-gray-200 mb-4">
                   {live.card?.name}
                 </p>
