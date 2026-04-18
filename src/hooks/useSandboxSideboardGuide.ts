@@ -65,11 +65,12 @@ export function useSandboxSideboardGuide() {
   const setEntry = async (
     matchupId: string,
     cardName: string,
-    delta: number
+    deltaPlay: number | null,
+    deltaDraw: number | null
   ): Promise<boolean> => {
     const next = matchups.map((m) => {
       if (m.id !== matchupId) return m
-      if (delta === 0) {
+      if (deltaPlay === null && deltaDraw === null) {
         return { ...m, entries: m.entries.filter((e) => e.card_name !== cardName) }
       }
       const idx = m.entries.findIndex((e) => e.card_name === cardName)
@@ -77,7 +78,8 @@ export function useSandboxSideboardGuide() {
         id: idx >= 0 ? m.entries[idx].id : makeId(),
         matchup_id: matchupId,
         card_name: cardName,
-        delta,
+        delta_play: deltaPlay,
+        delta_draw: deltaDraw,
       }
       if (idx >= 0) {
         const updated = [...m.entries]
@@ -101,9 +103,13 @@ export function useSandboxSideboardGuide() {
         (e) => e.card_name.toLowerCase() === cardName.toLowerCase()
       )
       if (!entry) continue
-      if (section === 'Mainboard' && entry.delta < 0 && Math.abs(entry.delta) > newQuantity) {
+      const dp = entry.delta_play ?? 0
+      const dd = entry.delta_draw ?? 0
+      const maxOut = Math.min(dp, dd)
+      const maxIn  = Math.max(dp, dd)
+      if (section === 'Mainboard' && maxOut < 0 && Math.abs(maxOut) > newQuantity) {
         conflicts.push(matchup.name)
-      } else if (section === 'Sideboard' && entry.delta > 0 && entry.delta > newQuantity) {
+      } else if (section === 'Sideboard' && maxIn > 0 && maxIn > newQuantity) {
         conflicts.push(matchup.name)
       }
     }
