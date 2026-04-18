@@ -5,6 +5,7 @@ export interface SideboardGuideEntry {
   id: string
   matchup_id: string
   card_name: string
+  is_out: boolean   // true = mainboard removal row, false = sideboard addition row
   // negative = out (mainboard), positive = in (sideboard)
   // null = not applicable for that mode
   delta_play: number | null
@@ -105,6 +106,7 @@ export function useSideboardGuide() {
   const setEntry = async (
     matchupId: string,
     cardName: string,
+    isOut: boolean,
     deltaPlay: number | null,
     deltaDraw: number | null
   ): Promise<boolean> => {
@@ -114,11 +116,12 @@ export function useSideboardGuide() {
         .delete()
         .eq('matchup_id', matchupId)
         .eq('card_name', cardName)
+        .eq('is_out', isOut)
       if (error) return false
       setMatchups((prev) =>
         prev.map((m) =>
           m.id === matchupId
-            ? { ...m, entries: m.entries.filter((e) => e.card_name !== cardName) }
+            ? { ...m, entries: m.entries.filter((e) => !(e.card_name === cardName && e.is_out === isOut)) }
             : m
         )
       )
@@ -126,8 +129,8 @@ export function useSideboardGuide() {
       const { data, error } = await supabase
         .from('sideboard_guide_entries')
         .upsert(
-          { matchup_id: matchupId, card_name: cardName, delta_play: deltaPlay, delta_draw: deltaDraw },
-          { onConflict: 'matchup_id,card_name' }
+          { matchup_id: matchupId, card_name: cardName, is_out: isOut, delta_play: deltaPlay, delta_draw: deltaDraw },
+          { onConflict: 'matchup_id,card_name,is_out' }
         )
         .select()
         .single()
@@ -136,7 +139,7 @@ export function useSideboardGuide() {
       setMatchups((prev) =>
         prev.map((m) => {
           if (m.id !== matchupId) return m
-          const idx = m.entries.findIndex((e) => e.card_name === cardName)
+          const idx = m.entries.findIndex((e) => e.card_name === cardName && e.is_out === isOut)
           if (idx >= 0) {
             const updated = [...m.entries]
             updated[idx] = newEntry
@@ -158,8 +161,9 @@ export function useSideboardGuide() {
   ): string[] => {
     const conflicts: string[] = []
     for (const matchup of matchups) {
+      const isOut = section === 'Mainboard'
       const entry = matchup.entries.find(
-        (e) => e.card_name.toLowerCase() === cardName.toLowerCase()
+        (e) => e.card_name.toLowerCase() === cardName.toLowerCase() && e.is_out === isOut
       )
       if (!entry) continue
       // Use the worst-case (largest absolute value across play/draw)

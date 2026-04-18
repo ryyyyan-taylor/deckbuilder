@@ -18,7 +18,7 @@ export interface SideboardGuidePanelProps {
   onRemoveMatchup: (matchupId: string) => Promise<boolean>
   onRenameMatchup: (matchupId: string, name: string) => Promise<boolean>
   onReorderMatchups: (newOrder: SideboardGuideMatchup[]) => Promise<void>
-  onSetEntry: (matchupId: string, cardName: string, deltaPlay: number | null, deltaDraw: number | null) => Promise<boolean>
+  onSetEntry: (matchupId: string, cardName: string, isOut: boolean, deltaPlay: number | null, deltaDraw: number | null) => Promise<boolean>
 }
 
 type CellMode = 'both' | 'play' | 'draw' | 'independent'
@@ -445,7 +445,7 @@ export function SideboardGuidePanel({
     }
 
     setEditingCell(null)
-    await onSetEntry(matchupId, cardName, dp, dd)
+    await onSetEntry(matchupId, cardName, isOut, dp, dd)
   }
 
   const activateCell = (
@@ -490,7 +490,7 @@ export function SideboardGuidePanel({
       dd = deltaDraw ?? deltaPlay ?? null
     }
     if (dp === null && dd === null) return // no-op if nothing to save
-    await onSetEntry(matchupId, cardName, dp, dd)
+    await onSetEntry(matchupId, cardName, isOut, dp, dd)
   }
 
   // ── Derived card lists ───────────────────────────────────────────────────
@@ -521,11 +521,11 @@ export function SideboardGuidePanel({
         localMatchups.flatMap((m) => m.entries.filter(isInEntry).map((e) => e.card_name))
       )].sort()
 
-  // Helper: get entry deltas for a card in a matchup
-  const getEntry = (matchupId: string, cardName: string) => {
+  // Helper: get entry for a card in a matchup, scoped to OUT or IN section
+  const getEntry = (matchupId: string, cardName: string, isOut: boolean) => {
     return localMatchups
       .find((m) => m.id === matchupId)
-      ?.entries.find((e) => e.card_name.toLowerCase() === cardName.toLowerCase()) ?? null
+      ?.entries.find((e) => e.card_name.toLowerCase() === cardName.toLowerCase() && e.is_out === isOut) ?? null
   }
 
   const isEmpty = localMatchups.length === 0
@@ -731,7 +731,7 @@ export function SideboardGuidePanel({
                     {cardName}
                   </div>
                   {localMatchups.map((matchup) => {
-                    const entry = getEntry(matchup.id, cardName)
+                    const entry = getEntry(matchup.id, cardName, true)
                     const isActive =
                       editingCell?.matchupId === matchup.id &&
                       editingCell?.cardName === cardName &&
@@ -758,7 +758,7 @@ export function SideboardGuidePanel({
                         onMenuOpen={() => setMenuCell({ matchupId: matchup.id, cardName })}
                         onMenuClose={() => setMenuCell(null)}
                         onModeChange={(mode) => handleModeChange(matchup.id, cardName, true, mode, entry?.delta_play ?? null, entry?.delta_draw ?? null)}
-                        onClear={() => { setMenuCell(null); void onSetEntry(matchup.id, cardName, null, null) }}
+                        onClear={() => { setMenuCell(null); void onSetEntry(matchup.id, cardName, true, null, null) }}
                       />
                     )
                   })}
@@ -796,7 +796,7 @@ export function SideboardGuidePanel({
                     {cardName}
                   </div>
                   {localMatchups.map((matchup) => {
-                    const entry = getEntry(matchup.id, cardName)
+                    const entry = getEntry(matchup.id, cardName, false)
                     const isActive =
                       editingCell?.matchupId === matchup.id &&
                       editingCell?.cardName === cardName &&
@@ -823,7 +823,7 @@ export function SideboardGuidePanel({
                         onMenuOpen={() => setMenuCell({ matchupId: matchup.id, cardName })}
                         onMenuClose={() => setMenuCell(null)}
                         onModeChange={(mode) => handleModeChange(matchup.id, cardName, false, mode, entry?.delta_play ?? null, entry?.delta_draw ?? null)}
-                        onClear={() => { setMenuCell(null); void onSetEntry(matchup.id, cardName, null, null) }}
+                        onClear={() => { setMenuCell(null); void onSetEntry(matchup.id, cardName, false, null, null) }}
                       />
                     )
                   })}

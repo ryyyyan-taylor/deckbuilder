@@ -65,19 +65,21 @@ export function useSandboxSideboardGuide() {
   const setEntry = async (
     matchupId: string,
     cardName: string,
+    isOut: boolean,
     deltaPlay: number | null,
     deltaDraw: number | null
   ): Promise<boolean> => {
     const next = matchups.map((m) => {
       if (m.id !== matchupId) return m
       if (deltaPlay === null && deltaDraw === null) {
-        return { ...m, entries: m.entries.filter((e) => e.card_name !== cardName) }
+        return { ...m, entries: m.entries.filter((e) => !(e.card_name === cardName && e.is_out === isOut)) }
       }
-      const idx = m.entries.findIndex((e) => e.card_name === cardName)
+      const idx = m.entries.findIndex((e) => e.card_name === cardName && e.is_out === isOut)
       const newEntry: SideboardGuideEntry = {
         id: idx >= 0 ? m.entries[idx].id : makeId(),
         matchup_id: matchupId,
         card_name: cardName,
+        is_out: isOut,
         delta_play: deltaPlay,
         delta_draw: deltaDraw,
       }
@@ -98,9 +100,10 @@ export function useSandboxSideboardGuide() {
     newQuantity: number
   ): string[] => {
     const conflicts: string[] = []
+    const isOut = section === 'Mainboard'
     for (const matchup of matchups) {
       const entry = matchup.entries.find(
-        (e) => e.card_name.toLowerCase() === cardName.toLowerCase()
+        (e) => e.card_name.toLowerCase() === cardName.toLowerCase() && e.is_out === isOut
       )
       if (!entry) continue
       const dp = entry.delta_play ?? 0
