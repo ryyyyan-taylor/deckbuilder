@@ -6,7 +6,7 @@ import {
 import { SortableContext, horizontalListSortingStrategy, useSortable, arrayMove } from '@dnd-kit/sortable'
 import { CSS } from '@dnd-kit/utilities'
 import type { DeckCard } from '../../hooks/useDeck'
-import type { SideboardGuideMatchup } from '../../hooks/useSideboardGuide'
+import type { SideboardGuideEntry, SideboardGuideMatchup } from '../../hooks/useSideboardGuide'
 
 export interface SideboardGuidePanelProps {
   matchups: SideboardGuideMatchup[]
@@ -18,7 +18,16 @@ export interface SideboardGuidePanelProps {
   onRemoveMatchup: (matchupId: string) => Promise<boolean>
   onRenameMatchup: (matchupId: string, name: string) => Promise<boolean>
   onReorderMatchups: (newOrder: SideboardGuideMatchup[]) => Promise<void>
-  onSetEntry: (matchupId: string, cardName: string, delta: number) => Promise<boolean>
+  onSetEntry: (matchupId: string, cardName: string, deltaPlay: number | null, deltaDraw: number | null) => Promise<boolean>
+}
+
+type CellMode = 'both' | 'play' | 'draw' | 'independent'
+
+function deriveCellMode(deltaPlay: number | null, deltaDraw: number | null): CellMode {
+  if (deltaPlay !== null && deltaDraw !== null) return deltaPlay === deltaDraw ? 'both' : 'independent'
+  if (deltaPlay !== null) return 'play'
+  if (deltaDraw !== null) return 'draw'
+  return 'both'
 }
 
 // ── Sortable matchup column header ──────────────────────────────────────────
@@ -118,61 +127,221 @@ interface CellProps {
   matchupId: string
   cardName: string
   isOut: boolean
-  delta: number | undefined
+  deltaPlay: number | null
+  deltaDraw: number | null
   isEditing: boolean
   isActive: boolean
-  cellValue: string
+  activeMode: CellMode
+  cellValuePlay: string
+  cellValueDraw: string
+  menuOpenFor: { matchupId: string; cardName: string } | null
   onActivate: () => void
-  onCellChange: (v: string) => void
+  onCellChangePlay: (v: string) => void
+  onCellChangeDraw: (v: string) => void
   onCellSave: () => void
   onCellCancel: () => void
+  onMenuOpen: () => void
+  onMenuClose: () => void
+  onModeChange: (mode: CellMode) => void
+  onClear: () => void
 }
 
 function GuideCell({
-  isOut, delta, isEditing, isActive,
-  cellValue, onActivate, onCellChange, onCellSave, onCellCancel,
+  isOut, deltaPlay, deltaDraw,
+  isEditing, isActive, activeMode,
+  cellValuePlay, cellValueDraw,
+  menuOpenFor, matchupId, cardName,
+  onActivate, onCellChangePlay, onCellChangeDraw, onCellSave, onCellCancel,
+  onMenuOpen, onMenuClose, onModeChange, onClear,
 }: CellProps) {
-  const inputRef = useRef<HTMLInputElement>(null)
+  const inputPlayRef = useRef<HTMLInputElement>(null)
+  const inputDrawRef = useRef<HTMLInputElement>(null)
+  const menuRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
-    if (isActive && inputRef.current) {
-      inputRef.current.focus()
-      inputRef.current.select()
+    if (isActive) {
+      if (activeMode === 'draw') inputDrawRef.current?.focus()
+      else { inputPlayRef.current?.focus(); inputPlayRef.current?.select() }
     }
-  }, [isActive])
+  }, [isActive, activeMode])
 
-  const absValue = delta !== undefined ? Math.abs(delta) : 0
+  // Close menu on outside click
+  useEffect(() => {
+    if (!menuOpenFor) return
+    const handler = (e: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(e.target as Node)) onMenuClose()
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [menuOpenFor, onMenuClose])
+
   const colorClass = isOut ? 'text-red-400 font-medium' : 'text-green-400 font-medium'
+  const isMenuOpen = menuOpenFor?.matchupId === matchupId && menuOpenFor?.cardName === cardName
+  const currentMode = deriveCellMode(deltaPlay, deltaDraw)
+  const hasValue = deltaPlay !== null || deltaDraw !== null
+
+  // Render the read-only value display
+  const renderValue = () => {
+    if (!hasValue) {
+      return isEditing ? <span className="text-gray-700 select-none">–</span> : null
+    }
+    const absP = deltaPlay !== null ? Math.abs(deltaPlay) : null
+    const absD = deltaDraw !== null ? Math.abs(deltaDraw) : null
+
+    if (currentMode === 'both') {
+      return <span className={colorClass}>{absP}</span>
+    }
+    if (currentMode === 'play') {
+      return (
+        <span className={colorClass}>
+          {absP}<span className="text-[10px] ml-0.5 opacity-75">P</span>
+        </span>
+      )
+    }
+    if (currentMode === 'draw') {
+      return (
+        <span className={colorClass}>
+          {absD}<span className="text-[10px] ml-0.5 opacity-75">D</span>
+        </span>
+      )
+    }
+    // independent
+    return (
+      <span className="flex items-center justify-center gap-1">
+        <span className={colorClass}>
+          {absP}<span className="text-[10px] opacity-75">P</span>
+        </span>
+        <span className="text-gray-600 text-[10px]">/</span>
+        <span className={colorClass}>
+          {absD}<span className="text-[10px] opacity-75">D</span>
+        </span>
+      </span>
+    )
+  }
 
   return (
     <div
-      className={`w-28 shrink-0 border-l border-gray-800 px-2 py-1.5 text-center text-sm
+      className={`w-28 shrink-0 border-l border-gray-800 px-2 py-1.5 text-center text-sm relative
         ${isEditing && !isActive ? 'cursor-pointer hover:bg-gray-700/40' : ''}
       `}
       onClick={() => {
-        if (isEditing && !isActive) onActivate()
+        if (isEditing && !isActive && !isMenuOpen) onActivate()
       }}
     >
       {isActive ? (
-        <input
-          ref={inputRef}
-          type="number"
-          min={0}
-          max={9}
-          value={cellValue}
-          onChange={(e) => onCellChange(e.target.value)}
-          onBlur={onCellSave}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter') onCellSave()
-            if (e.key === 'Escape') onCellCancel()
-          }}
-          className="w-full text-center bg-gray-700 border border-blue-500 rounded text-sm focus:outline-none px-1 py-0"
-        />
-      ) : absValue > 0 ? (
-        <span className={colorClass}>{absValue}</span>
-      ) : isEditing ? (
-        <span className="text-gray-700 select-none">–</span>
-      ) : null}
+        activeMode === 'independent' ? (
+          <div className="flex items-center gap-1">
+            <div className="flex-1 flex flex-col items-center gap-0.5">
+              <span className="text-[9px] text-gray-500 leading-none">P</span>
+              <input
+                ref={inputPlayRef}
+                type="number"
+                min={0}
+                max={9}
+                value={cellValuePlay}
+                onChange={(e) => onCellChangePlay(e.target.value)}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onCellSave()
+                  if (e.key === 'Escape') onCellCancel()
+                }}
+                className="w-full text-center bg-gray-700 border border-blue-500 rounded text-xs focus:outline-none px-0.5 py-0"
+              />
+            </div>
+            <div className="flex-1 flex flex-col items-center gap-0.5">
+              <span className="text-[9px] text-gray-500 leading-none">D</span>
+              <input
+                ref={inputDrawRef}
+                type="number"
+                min={0}
+                max={9}
+                value={cellValueDraw}
+                onChange={(e) => onCellChangeDraw(e.target.value)}
+                onBlur={onCellSave}
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') onCellSave()
+                  if (e.key === 'Escape') onCellCancel()
+                }}
+                className="w-full text-center bg-gray-700 border border-blue-500 rounded text-xs focus:outline-none px-0.5 py-0"
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-0.5">
+            {activeMode !== 'both' && (
+              <span className="text-[9px] text-gray-500 leading-none">
+                {activeMode === 'play' ? 'P' : 'D'}
+              </span>
+            )}
+            <input
+              ref={inputPlayRef}
+              type="number"
+              min={0}
+              max={9}
+              value={cellValuePlay}
+              onChange={(e) => onCellChangePlay(e.target.value)}
+              onBlur={onCellSave}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter') onCellSave()
+                if (e.key === 'Escape') onCellCancel()
+              }}
+              className="w-full text-center bg-gray-700 border border-blue-500 rounded text-sm focus:outline-none px-1 py-0"
+            />
+          </div>
+        )
+      ) : (
+        <>
+          {renderValue()}
+          {/* 3-dots menu button — only on populated cells in edit mode */}
+          {isEditing && hasValue && (
+            <div className="absolute top-0.5 right-0.5" ref={menuRef}>
+              <button
+                onPointerDown={(e) => e.stopPropagation()}
+                onClick={(e) => {
+                  e.stopPropagation()
+                  if (isMenuOpen) onMenuClose()
+                  else onMenuOpen()
+                }}
+                className="text-gray-600 hover:text-gray-300 text-xs leading-none px-0.5 rounded hover:bg-gray-700"
+                aria-label="Cell options"
+              >
+                ⋯
+              </button>
+              {isMenuOpen && (
+                <div className="absolute right-0 top-full mt-0.5 z-30 bg-gray-800 border border-gray-600 rounded shadow-lg text-xs w-28 py-0.5">
+                  {(['both', 'play', 'draw', 'independent'] as CellMode[]).map((m) => (
+                    <button
+                      key={m}
+                      onPointerDown={(e) => e.stopPropagation()}
+                      onClick={(e) => {
+                        e.stopPropagation()
+                        onModeChange(m)
+                      }}
+                      className={`w-full text-left px-3 py-1 hover:bg-gray-700 capitalize
+                        ${currentMode === m ? 'text-blue-400' : 'text-gray-300'}
+                      `}
+                    >
+                      {m === 'both' ? 'Both' : m === 'play' ? 'Play only' : m === 'draw' ? 'Draw only' : 'Independent'}
+                      {currentMode === m && ' ✓'}
+                    </button>
+                  ))}
+                  <div className="border-t border-gray-700 my-0.5" />
+                  <button
+                    onPointerDown={(e) => e.stopPropagation()}
+                    onClick={(e) => {
+                      e.stopPropagation()
+                      onClear()
+                      onMenuClose()
+                    }}
+                    className="w-full text-left px-3 py-1 hover:bg-gray-700 text-gray-500 hover:text-red-400"
+                  >
+                    Clear
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+        </>
+      )}
     </div>
   )
 }
@@ -203,7 +372,10 @@ export function SideboardGuidePanel({
     cardName: string
     isOut: boolean
   } | null>(null)
-  const [cellValue, setCellValue] = useState('')
+  const [activeCellMode, setActiveCellMode] = useState<CellMode>('both')
+  const [cellValuePlay, setCellValuePlay] = useState('')
+  const [cellValueDraw, setCellValueDraw] = useState('')
+  const [menuCell, setMenuCell] = useState<{ matchupId: string; cardName: string } | null>(null)
   const addInputRef = useRef<HTMLInputElement>(null)
 
   // Keep local in sync when prop changes (after DB operations)
@@ -240,23 +412,84 @@ export function SideboardGuidePanel({
     if (name) await onRenameMatchup(matchupId, name)
   }
 
+  // Helper: apply sign based on row type
+  const signed = (abs: number, isOut: boolean) => isOut ? -abs : abs
+
   // Save currently editing cell
   const flushCell = async () => {
     if (!editingCell) return
     const { matchupId, cardName, isOut } = editingCell
-    const num = parseInt(cellValue, 10)
-    const delta = isNaN(num) || num <= 0 ? 0 : isOut ? -num : num
+    const mode = activeCellMode
+
+    const parseVal = (v: string): number | null => {
+      const n = parseInt(v, 10)
+      return isNaN(n) || n <= 0 ? null : signed(n, isOut)
+    }
+
+    let dp: number | null = null
+    let dd: number | null = null
+
+    if (mode === 'both') {
+      const v = parseVal(cellValuePlay)
+      dp = v; dd = v
+    } else if (mode === 'play') {
+      dp = parseVal(cellValuePlay)
+    } else if (mode === 'draw') {
+      // draw-only mode reuses the single "play" input slot (inputPlayRef)
+      dd = parseVal(cellValuePlay)
+    } else {
+      // independent
+      dp = parseVal(cellValuePlay)
+      dd = parseVal(cellValueDraw)
+    }
+
     setEditingCell(null)
-    await onSetEntry(matchupId, cardName, delta)
+    await onSetEntry(matchupId, cardName, dp, dd)
   }
 
-  const activateCell = (matchupId: string, cardName: string, isOut: boolean, currentAbs: number) => {
-    // Flush any open cell first
-    if (editingCell) {
-      void flushCell()
-    }
+  const activateCell = (
+    matchupId: string, cardName: string, isOut: boolean,
+    deltaPlay: number | null, deltaDraw: number | null,
+    forceMode?: CellMode
+  ) => {
+    if (editingCell) void flushCell()
+    const mode = forceMode ?? deriveCellMode(deltaPlay, deltaDraw)
+    setActiveCellMode(mode)
     setEditingCell({ matchupId, cardName, isOut })
-    setCellValue(currentAbs > 0 ? String(currentAbs) : '')
+    const absP = deltaPlay !== null ? String(Math.abs(deltaPlay)) : ''
+    const absD = deltaDraw !== null ? String(Math.abs(deltaDraw)) : ''
+    // Single-input modes (both/play/draw) use the play input slot
+    setCellValuePlay(mode === 'draw' ? absD : (absP || absD))
+    // Independent mode also populates the draw input
+    setCellValueDraw(absD)
+  }
+
+  // Handle mode change from 3-dots menu (immediate save, no editing needed)
+  const handleModeChange = async (
+    matchupId: string, cardName: string, isOut: boolean,
+    newMode: CellMode,
+    deltaPlay: number | null, deltaDraw: number | null
+  ) => {
+    setMenuCell(null)
+    if (newMode === 'independent') {
+      // Activate for editing in independent mode
+      activateCell(matchupId, cardName, isOut, deltaPlay, deltaDraw, 'independent')
+      return
+    }
+    // For other modes, derive the new play/draw values and save immediately
+    const existing = deltaPlay ?? deltaDraw ?? 0
+    let dp: number | null = null
+    let dd: number | null = null
+    if (newMode === 'both') {
+      dp = existing !== 0 ? existing : null
+      dd = dp
+    } else if (newMode === 'play') {
+      dp = deltaPlay ?? deltaDraw ?? null
+    } else if (newMode === 'draw') {
+      dd = deltaDraw ?? deltaPlay ?? null
+    }
+    if (dp === null && dd === null) return // no-op if nothing to save
+    await onSetEntry(matchupId, cardName, dp, dd)
   }
 
   // ── Derived card lists ───────────────────────────────────────────────────
@@ -270,27 +503,43 @@ export function SideboardGuidePanel({
   )].sort()
 
   // In read mode: only show cards that appear in at least one matchup entry
+  const isOutEntry = (e: SideboardGuideEntry) =>
+    (e.delta_play !== null && e.delta_play < 0) || (e.delta_draw !== null && e.delta_draw < 0)
+  const isInEntry = (e: SideboardGuideEntry) =>
+    (e.delta_play !== null && e.delta_play > 0) || (e.delta_draw !== null && e.delta_draw > 0)
+
   const outNames = isEditing
     ? mainNames
     : [...new Set(
-        localMatchups.flatMap((m) => m.entries.filter((e) => e.delta < 0).map((e) => e.card_name))
+        localMatchups.flatMap((m) => m.entries.filter(isOutEntry).map((e) => e.card_name))
       )].sort()
 
   const inNames = isEditing
     ? sideNames
     : [...new Set(
-        localMatchups.flatMap((m) => m.entries.filter((e) => e.delta > 0).map((e) => e.card_name))
+        localMatchups.flatMap((m) => m.entries.filter(isInEntry).map((e) => e.card_name))
       )].sort()
 
-  // Helper: get delta for a card in a matchup
-  const getDelta = (matchupId: string, cardName: string): number | undefined => {
-    const entry = localMatchups
+  // Helper: get entry deltas for a card in a matchup
+  const getEntry = (matchupId: string, cardName: string) => {
+    return localMatchups
       .find((m) => m.id === matchupId)
-      ?.entries.find((e) => e.card_name.toLowerCase() === cardName.toLowerCase())
-    return entry?.delta
+      ?.entries.find((e) => e.card_name.toLowerCase() === cardName.toLowerCase()) ?? null
   }
 
   const isEmpty = localMatchups.length === 0
+
+  // Format a single entry for summary display
+  const formatEntryText = (e: SideboardGuideEntry): string => {
+    const dp = e.delta_play
+    const dd = e.delta_draw
+    const fmt = (v: number) => `${v > 0 ? '+' : '−'}${Math.abs(v)}`
+    if (dp !== null && dd !== null && dp === dd) return `${fmt(dp)} ${e.card_name}`
+    if (dp !== null && dd !== null) return `${fmt(dp)}P/${fmt(dd)}D ${e.card_name}`
+    if (dp !== null) return `${fmt(dp)}P ${e.card_name}`
+    if (dd !== null) return `${fmt(dd)}D ${e.card_name}`
+    return e.card_name
+  }
 
   // ── Summary view ─────────────────────────────────────────────────────────
 
@@ -301,10 +550,10 @@ export function SideboardGuidePanel({
       ) : (
         localMatchups.map((matchup) => {
           const outs = matchup.entries
-            .filter((e) => e.delta < 0)
+            .filter(isOutEntry)
             .sort((a, b) => a.card_name.localeCompare(b.card_name))
           const ins = matchup.entries
-            .filter((e) => e.delta > 0)
+            .filter(isInEntry)
             .sort((a, b) => a.card_name.localeCompare(b.card_name))
 
           return (
@@ -353,13 +602,13 @@ export function SideboardGuidePanel({
                   {outs.length > 0 && (
                     <p className="text-xs">
                       <span className="text-red-400 mr-1">↓</span>
-                      {outs.map((e) => `−${Math.abs(e.delta)} ${e.card_name}`).join(', ')}
+                      {outs.map(formatEntryText).join(', ')}
                     </p>
                   )}
                   {ins.length > 0 && (
                     <p className="text-xs">
                       <span className="text-green-400 mr-1">↑</span>
-                      {ins.map((e) => `+${e.delta} ${e.card_name}`).join(', ')}
+                      {ins.map(formatEntryText).join(', ')}
                     </p>
                   )}
                 </div>
@@ -481,8 +730,7 @@ export function SideboardGuidePanel({
                     {cardName}
                   </div>
                   {localMatchups.map((matchup) => {
-                    const delta = getDelta(matchup.id, cardName)
-                    const absVal = delta !== undefined ? Math.abs(delta) : 0
+                    const entry = getEntry(matchup.id, cardName)
                     const isActive =
                       editingCell?.matchupId === matchup.id && editingCell?.cardName === cardName
                     return (
@@ -491,14 +739,23 @@ export function SideboardGuidePanel({
                         matchupId={matchup.id}
                         cardName={cardName}
                         isOut={true}
-                        delta={delta}
+                        deltaPlay={entry?.delta_play ?? null}
+                        deltaDraw={entry?.delta_draw ?? null}
                         isEditing={isEditing}
                         isActive={isActive}
-                        cellValue={isActive ? cellValue : ''}
-                        onActivate={() => activateCell(matchup.id, cardName, true, absVal)}
-                        onCellChange={setCellValue}
+                        activeMode={isActive ? activeCellMode : 'both'}
+                        cellValuePlay={isActive ? cellValuePlay : ''}
+                        cellValueDraw={isActive ? cellValueDraw : ''}
+                        menuOpenFor={menuCell}
+                        onActivate={() => activateCell(matchup.id, cardName, true, entry?.delta_play ?? null, entry?.delta_draw ?? null)}
+                        onCellChangePlay={setCellValuePlay}
+                        onCellChangeDraw={setCellValueDraw}
                         onCellSave={flushCell}
                         onCellCancel={() => setEditingCell(null)}
+                        onMenuOpen={() => setMenuCell({ matchupId: matchup.id, cardName })}
+                        onMenuClose={() => setMenuCell(null)}
+                        onModeChange={(mode) => handleModeChange(matchup.id, cardName, true, mode, entry?.delta_play ?? null, entry?.delta_draw ?? null)}
+                        onClear={() => { setMenuCell(null); void onSetEntry(matchup.id, cardName, null, null) }}
                       />
                     )
                   })}
@@ -536,8 +793,7 @@ export function SideboardGuidePanel({
                     {cardName}
                   </div>
                   {localMatchups.map((matchup) => {
-                    const delta = getDelta(matchup.id, cardName)
-                    const absVal = delta !== undefined ? Math.abs(delta) : 0
+                    const entry = getEntry(matchup.id, cardName)
                     const isActive =
                       editingCell?.matchupId === matchup.id && editingCell?.cardName === cardName
                     return (
@@ -546,14 +802,23 @@ export function SideboardGuidePanel({
                         matchupId={matchup.id}
                         cardName={cardName}
                         isOut={false}
-                        delta={delta}
+                        deltaPlay={entry?.delta_play ?? null}
+                        deltaDraw={entry?.delta_draw ?? null}
                         isEditing={isEditing}
                         isActive={isActive}
-                        cellValue={isActive ? cellValue : ''}
-                        onActivate={() => activateCell(matchup.id, cardName, false, absVal)}
-                        onCellChange={setCellValue}
+                        activeMode={isActive ? activeCellMode : 'both'}
+                        cellValuePlay={isActive ? cellValuePlay : ''}
+                        cellValueDraw={isActive ? cellValueDraw : ''}
+                        menuOpenFor={menuCell}
+                        onActivate={() => activateCell(matchup.id, cardName, false, entry?.delta_play ?? null, entry?.delta_draw ?? null)}
+                        onCellChangePlay={setCellValuePlay}
+                        onCellChangeDraw={setCellValueDraw}
                         onCellSave={flushCell}
                         onCellCancel={() => setEditingCell(null)}
+                        onMenuOpen={() => setMenuCell({ matchupId: matchup.id, cardName })}
+                        onMenuClose={() => setMenuCell(null)}
+                        onModeChange={(mode) => handleModeChange(matchup.id, cardName, false, mode, entry?.delta_play ?? null, entry?.delta_draw ?? null)}
+                        onClear={() => { setMenuCell(null); void onSetEntry(matchup.id, cardName, null, null) }}
                       />
                     )
                   })}

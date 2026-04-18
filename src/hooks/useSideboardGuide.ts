@@ -5,7 +5,10 @@ export interface SideboardGuideEntry {
   id: string
   matchup_id: string
   card_name: string
-  delta: number // negative = out (mainboard), positive = in (sideboard)
+  // negative = out (mainboard), positive = in (sideboard)
+  // null = not applicable for that mode
+  delta_play: number | null
+  delta_draw: number | null
 }
 
 export interface SideboardGuideMatchup {
@@ -102,9 +105,10 @@ export function useSideboardGuide() {
   const setEntry = async (
     matchupId: string,
     cardName: string,
-    delta: number
+    deltaPlay: number | null,
+    deltaDraw: number | null
   ): Promise<boolean> => {
-    if (delta === 0) {
+    if (deltaPlay === null && deltaDraw === null) {
       const { error } = await supabase
         .from('sideboard_guide_entries')
         .delete()
@@ -122,7 +126,7 @@ export function useSideboardGuide() {
       const { data, error } = await supabase
         .from('sideboard_guide_entries')
         .upsert(
-          { matchup_id: matchupId, card_name: cardName, delta },
+          { matchup_id: matchupId, card_name: cardName, delta_play: deltaPlay, delta_draw: deltaDraw },
           { onConflict: 'matchup_id,card_name' }
         )
         .select()
@@ -158,9 +162,14 @@ export function useSideboardGuide() {
         (e) => e.card_name.toLowerCase() === cardName.toLowerCase()
       )
       if (!entry) continue
-      if (section === 'Mainboard' && entry.delta < 0 && Math.abs(entry.delta) > newQuantity) {
+      // Use the worst-case (largest absolute value across play/draw)
+      const dp = entry.delta_play ?? 0
+      const dd = entry.delta_draw ?? 0
+      const maxOut = Math.min(dp, dd)   // most negative = most cards removed
+      const maxIn  = Math.max(dp, dd)   // most positive = most cards added
+      if (section === 'Mainboard' && maxOut < 0 && Math.abs(maxOut) > newQuantity) {
         conflicts.push(matchup.name)
-      } else if (section === 'Sideboard' && entry.delta > 0 && entry.delta > newQuantity) {
+      } else if (section === 'Sideboard' && maxIn > 0 && maxIn > newQuantity) {
         conflicts.push(matchup.name)
       }
     }
