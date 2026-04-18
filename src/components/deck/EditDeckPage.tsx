@@ -618,7 +618,8 @@ export function EditDeckPage() {
   const countForSections = (names: string[]) =>
     deckCards.filter((dc) => names.includes(dc.section)).reduce((sum, dc) => sum + dc.quantity, 0)
   const mainDeckCount = countForSections(['Mainboard', 'Commander'])
-  const sideboardCount = cardSections.includes('Sideboard') ? countForSections(['Sideboard']) : 0
+  const hasSideboard = cardSections.includes('Sideboard')
+  const sideboardCount = hasSideboard ? countForSections(['Sideboard']) : 0
   const otherSectionNames = cardSections.filter((s) => !['Mainboard', 'Commander', 'Sideboard'].includes(s))
   const otherCount = countForSections(otherSectionNames)
 
@@ -775,6 +776,14 @@ export function EditDeckPage() {
                     Import
                   </button>
                 )}
+                {hasSideboard && !bulkEditMode && (
+                  <button
+                    onClick={() => { setShowGuide((v) => !v); setShowActionsMenu(false) }}
+                    className={`w-full text-left px-3 py-2.5 text-sm ${showGuide ? 'text-teal-400' : 'text-gray-300'} hover:bg-gray-700`}
+                  >
+                    Guide
+                  </button>
+                )}
               </div>
             )}
           </div>
@@ -830,6 +839,14 @@ export function EditDeckPage() {
                   className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
                 >
                   Import
+                </button>
+              )}
+              {hasSideboard && !bulkEditMode && (
+                <button
+                  onClick={() => setShowGuide((v) => !v)}
+                  className={`px-3 py-1.5 rounded text-sm ${showGuide ? 'bg-teal-700 hover:bg-teal-600 text-white' : 'bg-gray-700 hover:bg-gray-600'}`}
+                >
+                  Guide
                 </button>
               )}
             </div>
@@ -1094,12 +1111,6 @@ export function EditDeckPage() {
                       onMobileTap={setActiveMobileCard}
                       onRequestVersionPicker={handleOpenVersionPicker}
                     />
-                    <button
-                      onClick={() => setShowGuide(true)}
-                      className="absolute top-3 right-4 text-xs px-2.5 py-1 bg-teal-900/70 hover:bg-teal-800 text-teal-300 rounded border border-teal-700/50"
-                    >
-                      Guide
-                    </button>
                   </div>
                 ) : (
                   <DeckSection

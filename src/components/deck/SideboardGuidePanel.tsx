@@ -361,7 +361,7 @@ export function SideboardGuidePanel({
   onReorderMatchups,
   onSetEntry,
 }: SideboardGuidePanelProps) {
-  const [view, setView] = useState<'summary' | 'grid'>('summary')
+  const [view, setView] = useState<'summary' | 'grid'>('grid')
   const [isEditing, setIsEditing] = useState(false)
   // Local matchup order for optimistic dnd reorder
   const [localMatchups, setLocalMatchups] = useState<SideboardGuideMatchup[]>(propMatchups)
