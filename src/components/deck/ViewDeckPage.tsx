@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { useParams, Link } from 'react-router-dom'
 import { useDeck } from '../../hooks/useDeck'
 import type { Deck, DeckCard, Card } from '../../hooks/useDeck'
@@ -25,6 +26,7 @@ export function ViewDeckPage() {
   const [viewMode, setViewMode] = useState<ViewMode>('stacks')
   const [notFound, setNotFound] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
+  const [showActionsMenu, setShowActionsMenu] = useState(false)
   const guide = useSideboardGuide()
 
   useEffect(() => {
@@ -95,7 +97,7 @@ export function ViewDeckPage() {
   return (
     <div className="min-h-screen bg-gray-900 text-white">
       {/* Art banner */}
-      <div className="relative bg-gray-800 overflow-hidden min-h-[220px]">
+      <div className="relative bg-gray-800 overflow-hidden">
         {bannerArt && (
           <>
             <img
@@ -103,80 +105,166 @@ export function ViewDeckPage() {
               alt=""
               className="absolute inset-0 w-full h-full object-cover object-right"
             />
-            <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/80 to-gray-900/20" />
+            <div className="absolute inset-0 bg-gradient-to-r from-gray-900 via-gray-900/85 to-gray-900/40" />
           </>
         )}
-        <div className="relative px-6 py-5 flex flex-col justify-between min-h-[220px]">
-          {/* Top: back link */}
-          <Link to="/" className="text-gray-400 hover:text-gray-300 text-sm self-start">
-            &larr; Public Decks
-          </Link>
-          {/* Bottom: deck info left, controls right */}
-          <div className="flex items-end justify-between gap-4">
+        <div className="relative px-3 py-4 md:px-6 md:py-4">
+          <div className="flex items-start justify-between gap-2">
             <div className="min-w-0">
-              <h1 className="text-2xl font-bold">{deck!.name}</h1>
+              <Link to="/" className="text-gray-400 hover:text-gray-300 text-sm">
+                &larr; Public Decks
+              </Link>
+              <h1 className="text-xl md:text-2xl font-bold mt-1 truncate">{deck!.name}</h1>
               <div className="flex items-center gap-2 mt-1 flex-wrap">
                 {deck!.format && (
-                  <span className="bg-gray-700/80 px-2 py-0.5 rounded text-xs text-gray-300">
+                  <span className="bg-gray-700 px-2 py-0.5 rounded text-xs text-gray-300">
                     {deck!.format}
                   </span>
                 )}
-                <span className="text-gray-400 text-sm">
+                <span className="text-gray-500 text-sm">
                   {mainDeckCount} Main{sideboardCount > 0 && ` | ${sideboardCount} Sideboard`}{otherCount > 0 && ` | ${otherCount} Other`}
                 </span>
               </div>
             </div>
-            <div className="flex items-center gap-2 shrink-0">
-              <div className="flex items-center bg-gray-800/80 border border-gray-700 rounded text-sm">
-                <button
-                  onClick={() => setSortBy('name')}
-                  className={`px-3 py-1.5 rounded-l ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-                >
-                  Name
-                </button>
-                <button
-                  onClick={() => setSortBy('cmc')}
-                  className={`px-3 py-1.5 rounded-r ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-                >
-                  Mana Value
-                </button>
+
+            {/* Mobile: 3-dot button */}
+            <div className="shrink-0 md:hidden">
+              <button
+                onClick={() => setShowActionsMenu((p) => !p)}
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-lg leading-none"
+                aria-label="More actions"
+              >
+                ⋮
+              </button>
+            </div>
+
+            {/* Desktop: sort + view + edit */}
+            <div className="hidden md:flex flex-col items-end gap-2 shrink-0">
+              <div className="flex items-center gap-2">
+                {isOwner && (
+                  <Link
+                    to={`/decks/${deck!.id}/edit`}
+                    className="px-3 py-1.5 bg-blue-600 hover:bg-blue-500 rounded text-sm font-medium"
+                  >
+                    Edit Deck
+                  </Link>
+                )}
               </div>
-              <div className="flex items-center bg-gray-800/80 border border-gray-700 rounded text-sm">
-                <button
-                  onClick={() => setViewMode('stacks')}
-                  className={`px-3 py-1.5 rounded-l ${viewMode === 'stacks' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-                >
-                  Stacks
-                </button>
-                <button
-                  onClick={() => setViewMode('grid')}
-                  className={`px-3 py-1.5 rounded-r ${viewMode === 'grid' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
-                >
-                  Grid
-                </button>
+              <div className="flex items-center gap-2">
+                <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
+                  <button
+                    onClick={() => setSortBy('name')}
+                    className={`px-3 py-1.5 rounded-l ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Name
+                  </button>
+                  <button
+                    onClick={() => setSortBy('cmc')}
+                    className={`px-3 py-1.5 rounded-r ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Mana Value
+                  </button>
+                </div>
+                <div className="flex items-center bg-gray-800 border border-gray-700 rounded text-sm">
+                  <button
+                    onClick={() => setViewMode('stacks')}
+                    className={`px-3 py-1.5 rounded-l ${viewMode === 'stacks' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Stacks
+                  </button>
+                  <button
+                    onClick={() => setViewMode('grid')}
+                    className={`px-3 py-1.5 rounded-r ${viewMode === 'grid' ? 'bg-gray-600 text-white' : 'text-gray-400 hover:text-gray-300'}`}
+                  >
+                    Grid
+                  </button>
+                </div>
               </div>
-              {isOwner && (
-                <Link
-                  to={`/decks/${deck!.id}/edit`}
-                  className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium text-sm"
-                >
-                  Edit Deck
-                </Link>
-              )}
             </div>
           </div>
         </div>
       </div>
 
+      {/* Mobile actions bottom sheet */}
+      {showActionsMenu && createPortal(
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex flex-col justify-end md:hidden touch-none"
+          onClick={() => setShowActionsMenu(false)}
+        >
+          <div
+            className="bg-gray-800 border-t border-gray-700 rounded-t-2xl w-full max-h-[85vh] flex flex-col touch-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-3 pb-2 shrink-0">
+              <div className="w-10 h-1 bg-gray-600 rounded-full" />
+            </div>
+            <div className="overflow-y-auto overscroll-contain pb-8">
+              <div className="px-4 py-3 border-b border-gray-700 space-y-3">
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">Sort by</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setSortBy('name'); setShowActionsMenu(false) }}
+                      className={`px-3 py-1.5 rounded text-sm ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                    >
+                      Name
+                    </button>
+                    <button
+                      onClick={() => { setSortBy('cmc'); setShowActionsMenu(false) }}
+                      className={`px-3 py-1.5 rounded text-sm ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                    >
+                      Mana Value
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-xs text-gray-500 mb-2">View</p>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => { setViewMode('stacks'); setShowActionsMenu(false) }}
+                      className={`px-3 py-1.5 rounded text-sm ${viewMode === 'stacks' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                    >
+                      Stacks
+                    </button>
+                    <button
+                      onClick={() => { setViewMode('grid'); setShowActionsMenu(false) }}
+                      className={`px-3 py-1.5 rounded text-sm ${viewMode === 'grid' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                    >
+                      Grid
+                    </button>
+                  </div>
+                </div>
+              </div>
+              {isOwner && (
+                <Link
+                  to={`/decks/${deck!.id}/edit`}
+                  className="block px-4 py-3.5 text-sm text-blue-400 hover:bg-gray-700 border-t border-gray-700"
+                  onClick={() => setShowActionsMenu(false)}
+                >
+                  Edit Deck
+                </Link>
+              )}
+              <button
+                onClick={() => setShowActionsMenu(false)}
+                className="w-full text-center px-4 py-3.5 text-sm text-gray-400 border-t border-gray-700 mt-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
+
       {/* Description */}
       {deck!.description && (
-        <div className="px-6 py-4 border-b border-gray-800">
+        <div className="px-3 py-3 md:px-6 border-b border-gray-800">
           <p className="text-gray-300 text-sm leading-relaxed max-w-3xl">{deck!.description}</p>
         </div>
       )}
 
       {/* Two-column layout: sections + preview */}
-      <div className="mx-auto px-6 py-6">
+      <div className="px-3 py-4 md:px-6">
         <div className="flex gap-6">
           <div className="flex-1 min-w-0">
             <div className="space-y-4">
@@ -224,7 +312,7 @@ export function ViewDeckPage() {
                     {guide.matchups.length > 0 && (
                       <button
                         onClick={() => setShowGuide(true)}
-                        className="absolute top-3 right-4 text-xs px-2.5 py-1 bg-teal-900/70 hover:bg-teal-800 text-teal-300 rounded border border-teal-700/50"
+                        className="absolute top-3 right-4 px-3 py-1.5 bg-teal-700 hover:bg-teal-600 text-white rounded text-sm font-medium"
                       >
                         Guide
                       </button>
