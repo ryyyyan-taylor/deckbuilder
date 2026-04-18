@@ -158,6 +158,8 @@ function GuideCell({
   const inputDrawRef = useRef<HTMLInputElement>(null)
   const menuRef = useRef<HTMLDivElement>(null)
 
+  const isMenuOpen = menuOpenFor?.matchupId === matchupId && menuOpenFor?.cardName === cardName
+
   useEffect(() => {
     if (isActive) {
       if (activeMode === 'draw') inputDrawRef.current?.focus()
@@ -165,18 +167,17 @@ function GuideCell({
     }
   }, [isActive, activeMode])
 
-  // Close menu on outside click
+  // Close menu on outside click — only register for the cell that owns the open menu
   useEffect(() => {
-    if (!menuOpenFor) return
+    if (!isMenuOpen) return
     const handler = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) onMenuClose()
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [menuOpenFor, onMenuClose])
+  }, [isMenuOpen, onMenuClose])
 
   const colorClass = isOut ? 'text-red-400 font-medium' : 'text-green-400 font-medium'
-  const isMenuOpen = menuOpenFor?.matchupId === matchupId && menuOpenFor?.cardName === cardName
   const currentMode = deriveCellMode(deltaPlay, deltaDraw)
   const hasValue = deltaPlay !== null || deltaDraw !== null
 
