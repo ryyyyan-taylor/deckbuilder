@@ -733,7 +733,9 @@ export function SideboardGuidePanel({
                   {localMatchups.map((matchup) => {
                     const entry = getEntry(matchup.id, cardName)
                     const isActive =
-                      editingCell?.matchupId === matchup.id && editingCell?.cardName === cardName
+                      editingCell?.matchupId === matchup.id &&
+                      editingCell?.cardName === cardName &&
+                      editingCell?.isOut === true
                     return (
                       <GuideCell
                         key={matchup.id}
@@ -796,7 +798,9 @@ export function SideboardGuidePanel({
                   {localMatchups.map((matchup) => {
                     const entry = getEntry(matchup.id, cardName)
                     const isActive =
-                      editingCell?.matchupId === matchup.id && editingCell?.cardName === cardName
+                      editingCell?.matchupId === matchup.id &&
+                      editingCell?.cardName === cardName &&
+                      editingCell?.isOut === false
                     return (
                       <GuideCell
                         key={matchup.id}
