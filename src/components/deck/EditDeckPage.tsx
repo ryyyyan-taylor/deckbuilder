@@ -766,53 +766,16 @@ export function EditDeckPage() {
             )}
           </div>
           </div>
-        </div>
-      </div>
 
-      {/* Description */}
-      {deck!.description && !showEditForm && (
-        <div className="px-3 py-3 md:px-6 border-b border-gray-800">
-          <p className="text-gray-300 text-sm leading-relaxed max-w-3xl">{deck!.description}</p>
-        </div>
-      )}
+          {/* Description inside banner */}
+          {deck!.description && !showEditForm && (
+            <p className="text-gray-300 text-sm leading-relaxed max-w-3xl mt-3">{deck!.description}</p>
+          )}
 
-      {/* Page content */}
-      <div className="px-3 py-4 md:px-6">
-        {/* Edit form (collapsible) */}
-        {showEditForm && (
-          <div className="mb-6 p-4 bg-gray-800 border border-gray-700 rounded">
-            <DeckForm
-              deck={deck!}
-              onSubmit={handleUpdateDeck}
-              onCancel={() => setShowEditForm(false)}
-            />
-            {/* Display card picker */}
-            <div className="mt-4 pt-4 border-t border-gray-700">
-              <label className="block text-sm font-medium text-gray-300 mb-1">Display Card</label>
-              <p className="text-xs text-gray-500 mb-2">Card art shown on listings and the page banner.</p>
-              <select
-                value={deck!.display_card_id ?? ''}
-                onChange={(e) => {
-                  const cardId = e.target.value || null
-                  void updateDeck(id!, { display_card_id: cardId }).then((result) => {
-                    if (result) setDeck(result)
-                  })
-                }}
-                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-sm"
-              >
-                <option value="">(None)</option>
-                {displayCardOptions.map(({ card_id, name }) => (
-                  <option key={card_id} value={card_id}>{name}</option>
-                ))}
-              </select>
-            </div>
-          </div>
-        )}
-
-        {/* Section management bar */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={sections} strategy={horizontalListSortingStrategy}>
-            <div className="flex items-center gap-2 mb-6 overflow-x-auto pb-1 md:flex-wrap">
+          {/* Section management bar — inside banner so art extends behind it */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sections} strategy={horizontalListSortingStrategy}>
+              <div className="flex items-center gap-2 mt-4 overflow-x-auto pb-1 md:flex-wrap">
               {sections.map((s) => (
                 <SortablePill key={s} id={s}>
                   {renamingSection === s ? (
@@ -879,8 +842,43 @@ export function EditDeckPage() {
                 </button>
               )}
             </div>
-          </SortableContext>
-        </DndContext>
+            </SortableContext>
+          </DndContext>
+        </div>
+      </div>
+
+      {/* Page content */}
+      <div className="px-3 py-4 md:px-6">
+        {/* Edit form (collapsible) */}
+        {showEditForm && (
+          <div className="mb-6 p-4 bg-gray-800 border border-gray-700 rounded">
+            <DeckForm
+              deck={deck!}
+              onSubmit={handleUpdateDeck}
+              onCancel={() => setShowEditForm(false)}
+            />
+            {/* Display card picker */}
+            <div className="mt-4 pt-4 border-t border-gray-700">
+              <label className="block text-sm font-medium text-gray-300 mb-1">Display Card</label>
+              <p className="text-xs text-gray-500 mb-2">Card art shown on listings and the page banner.</p>
+              <select
+                value={deck!.display_card_id ?? ''}
+                onChange={(e) => {
+                  const cardId = e.target.value || null
+                  void updateDeck(id!, { display_card_id: cardId }).then((result) => {
+                    if (result) setDeck(result)
+                  })
+                }}
+                className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-blue-500 text-sm"
+              >
+                <option value="">(None)</option>
+                {displayCardOptions.map(({ card_id, name }) => (
+                  <option key={card_id} value={card_id}>{name}</option>
+                ))}
+              </select>
+            </div>
+          </div>
+        )}
 
         {/* Card search — collapsible on mobile */}
         <div className="mb-6">

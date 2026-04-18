@@ -609,26 +609,11 @@ export function SandboxPage() {
             </button>
           </div>
           </div>
-        </div>
-      </div>
 
-      {/* Page content */}
-      <div className="px-6 py-4">
-        {/* Edit form (collapsible) */}
-        {showEditForm && (
-          <div className="mb-6 p-4 bg-gray-800 border border-gray-700 rounded">
-            <DeckForm
-              deck={deck}
-              onSubmit={handleUpdateDeck}
-              onCancel={() => setShowEditForm(false)}
-            />
-          </div>
-        )}
-
-        {/* Section management bar */}
-        <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
-          <SortableContext items={sections} strategy={horizontalListSortingStrategy}>
-            <div className="flex flex-wrap items-center gap-2 mb-6">
+          {/* Section management bar — inside banner so art extends behind it */}
+          <DndContext sensors={sensors} collisionDetection={closestCenter} onDragEnd={handleDragEnd}>
+            <SortableContext items={sections} strategy={horizontalListSortingStrategy}>
+              <div className="flex items-center gap-2 mt-4 overflow-x-auto pb-1 flex-wrap">
               {sections.map((s) => (
                 <SortablePill key={s} id={s}>
                   {renamingSection === s ? (
@@ -695,8 +680,23 @@ export function SandboxPage() {
                 </button>
               )}
             </div>
-          </SortableContext>
-        </DndContext>
+            </SortableContext>
+          </DndContext>
+        </div>
+      </div>
+
+      {/* Page content */}
+      <div className="px-3 py-4 md:px-6">
+        {/* Edit form (collapsible) */}
+        {showEditForm && (
+          <div className="mb-6 p-4 bg-gray-800 border border-gray-700 rounded">
+            <DeckForm
+              deck={deck}
+              onSubmit={handleUpdateDeck}
+              onCancel={() => setShowEditForm(false)}
+            />
+          </div>
+        )}
 
         {/* Card search */}
         <div className="mb-6">
