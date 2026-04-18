@@ -580,6 +580,13 @@ export function EditDeckPage() {
     return () => document.removeEventListener('mousedown', handler)
   }, [showActionsMenu])
 
+  // Lock body scroll while mobile action sheet is open
+  useEffect(() => {
+    if (!activeMobileCard) return
+    document.body.style.overflow = 'hidden'
+    return () => { document.body.style.overflow = '' }
+  }, [activeMobileCard])
+
   if (loading && !deck) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
@@ -1271,27 +1278,25 @@ export function EditDeckPage() {
         const otherSections = cardSections.filter(s => s !== live.section)
         return createPortal(
           <div
-            className="fixed inset-0 bg-black/70 z-50 flex flex-col items-center justify-end text-white md:hidden"
+            className="fixed inset-0 bg-black/70 z-50 flex flex-col items-center justify-end text-white md:hidden touch-none"
             onClick={() => setActiveMobileCard(null)}
           >
             {/* Card image — shrinks when sheet is expanded */}
             <div
-              className={`transition-all duration-300 ease-out flex items-center justify-center pointer-events-none px-4 min-h-0 ${
-                mobileSheetExpanded ? 'h-24 pb-1' : 'flex-1 pb-4'
+              className={`transition-all duration-300 ease-out flex items-center justify-center pointer-events-none px-8 min-h-0 ${
+                mobileSheetExpanded ? 'h-28 pb-1' : 'flex-1 pb-4'
               }`}
             >
               {live.card?.image_uris?.normal ? (
                 <img
                   src={live.card.image_uris.normal}
                   alt={live.card?.name ?? 'Card'}
-                  className={`rounded-xl shadow-2xl object-contain transition-all duration-300 ease-out max-h-full ${
-                    mobileSheetExpanded ? 'max-w-[90px]' : 'max-w-[180px]'
-                  }`}
+                  className="rounded-xl shadow-2xl object-contain transition-all duration-300 ease-out max-h-full w-auto"
                   draggable={false}
                 />
               ) : (
                 <div className={`bg-gray-700 rounded-xl flex items-center justify-center text-sm text-gray-300 p-2 text-center shadow-2xl aspect-[2.5/3.5] transition-all duration-300 ease-out ${
-                  mobileSheetExpanded ? 'w-[90px]' : 'w-[180px]'
+                  mobileSheetExpanded ? 'w-[90px]' : 'w-[200px]'
                 }`}>
                   {live.card?.name}
                 </div>
@@ -1299,8 +1304,8 @@ export function EditDeckPage() {
             </div>
             {/* Bottom sheet */}
             <div
-              className={`bg-gray-800 border-t border-gray-600 rounded-t-2xl w-full flex flex-col transition-all duration-300 ease-out ${
-                mobileSheetExpanded ? 'max-h-[88vh]' : 'max-h-[65vh]'
+              className={`bg-gray-800 border-t border-gray-600 rounded-t-2xl w-full flex flex-col transition-all duration-300 ease-out touch-auto ${
+                mobileSheetExpanded ? 'max-h-[88vh]' : 'max-h-[45vh]'
               }`}
               onClick={(e) => e.stopPropagation()}
             >
@@ -1318,7 +1323,7 @@ export function EditDeckPage() {
               >
                 <div className="w-10 h-1 bg-gray-600 rounded-full" />
               </div>
-              <div className="px-4 pb-8 overflow-y-auto">
+              <div className="px-4 pb-8 overflow-y-auto overscroll-contain touch-auto">
                 <p className="text-sm font-semibold text-center text-gray-200 mb-4">
                   {live.card?.name}
                 </p>
