@@ -74,6 +74,8 @@ export function SandboxPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const toastIdRef = useRef(0)
   const [activeMobileCard, setActiveMobileCard] = useState<DeckCard | null>(null)
+  const [mobileSheetExpanded, setMobileSheetExpanded] = useState(false)
+  const sheetDragY = useRef<number | null>(null)
   const [versionPickerCard, setVersionPickerCard] = useState<DeckCard | null>(null)
   const [versions, setVersions] = useState<Card[]>([])
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
@@ -792,7 +794,7 @@ export function SandboxPage() {
                         sections={cardSections}
                         onSendToSection={handleSendToSection}
                         onAddToSection={handleAddToSection}
-                        onMobileTap={setActiveMobileCard}
+                        onMobileTap={(dc) => { setActiveMobileCard(dc); setMobileSheetExpanded(false) }}
                         onRequestVersionPicker={handleOpenVersionPicker}
                       />
                       <button
@@ -971,27 +973,48 @@ export function SandboxPage() {
             className="fixed inset-0 bg-black/70 z-50 flex flex-col items-center justify-end text-white md:hidden"
             onClick={() => setActiveMobileCard(null)}
           >
-            {/* Card image centered above sheet */}
-            <div className="flex-1 flex items-center justify-center pointer-events-none pb-4 px-4">
+            {/* Card image — shrinks when sheet is expanded */}
+            <div
+              className={`transition-all duration-300 ease-out flex items-center justify-center pointer-events-none px-4 min-h-0 ${
+                mobileSheetExpanded ? 'h-24 pb-1' : 'flex-1 pb-4'
+              }`}
+            >
               {live.card?.image_uris?.normal ? (
                 <img
                   src={live.card.image_uris.normal}
                   alt={live.card?.name ?? 'Card'}
-                  className="w-[180px] rounded-xl shadow-2xl"
+                  className={`rounded-xl shadow-2xl object-contain transition-all duration-300 ease-out max-h-full ${
+                    mobileSheetExpanded ? 'max-w-[90px]' : 'max-w-[180px]'
+                  }`}
                   draggable={false}
                 />
               ) : (
-                <div className="w-[180px] aspect-[2.5/3.5] bg-gray-700 rounded-xl flex items-center justify-center text-sm text-gray-300 p-2 text-center shadow-2xl">
+                <div className={`bg-gray-700 rounded-xl flex items-center justify-center text-sm text-gray-300 p-2 text-center shadow-2xl aspect-[2.5/3.5] transition-all duration-300 ease-out ${
+                  mobileSheetExpanded ? 'w-[90px]' : 'w-[180px]'
+                }`}>
                   {live.card?.name}
                 </div>
               )}
             </div>
             {/* Bottom sheet */}
             <div
-              className="bg-gray-800 border-t border-gray-600 rounded-t-2xl w-full max-h-[65vh] flex flex-col"
+              className={`bg-gray-800 border-t border-gray-600 rounded-t-2xl w-full flex flex-col transition-all duration-300 ease-out ${
+                mobileSheetExpanded ? 'max-h-[88vh]' : 'max-h-[65vh]'
+              }`}
               onClick={(e) => e.stopPropagation()}
             >
-              <div className="flex justify-center pt-3 pb-1 shrink-0">
+              {/* Drag handle — swipe up to expand, swipe down to collapse */}
+              <div
+                className="flex justify-center pt-3 pb-2 shrink-0 touch-none"
+                onTouchStart={(e) => { sheetDragY.current = e.touches[0].clientY }}
+                onTouchEnd={(e) => {
+                  if (sheetDragY.current === null) return
+                  const dy = e.changedTouches[0].clientY - sheetDragY.current
+                  if (!mobileSheetExpanded && dy < -40) setMobileSheetExpanded(true)
+                  else if (mobileSheetExpanded && dy > 40) setMobileSheetExpanded(false)
+                  sheetDragY.current = null
+                }}
+              >
                 <div className="w-10 h-1 bg-gray-600 rounded-full" />
               </div>
               <div className="px-4 pb-8 overflow-y-auto">
