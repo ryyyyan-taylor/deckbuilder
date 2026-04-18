@@ -74,7 +74,6 @@ export function EditDeckPage() {
   const [toasts, setToasts] = useState<ToastItem[]>([])
   const toastIdRef = useRef(0)
   const [showActionsMenu, setShowActionsMenu] = useState(false)
-  const actionsMenuRef = useRef<HTMLDivElement>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [activeMobileCard, setActiveMobileCard] = useState<DeckCard | null>(null)
   const [mobileSheetExpanded, setMobileSheetExpanded] = useState(false)
@@ -569,17 +568,6 @@ export function EditDeckPage() {
     }
   }, [addingSectionName])
 
-  useEffect(() => {
-    if (!showActionsMenu) return
-    const handler = (e: MouseEvent) => {
-      if (actionsMenuRef.current && !actionsMenuRef.current.contains(e.target as Node)) {
-        setShowActionsMenu(false)
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [showActionsMenu])
-
   // Lock body scroll while mobile action sheet is open
   useEffect(() => {
     if (!activeMobileCard) return
@@ -679,8 +667,8 @@ export function EditDeckPage() {
             </div>
           </div>
 
-          {/* Mobile: 3-dot menu */}
-          <div className="relative shrink-0 md:hidden" ref={actionsMenuRef}>
+          {/* Mobile: hamburger button */}
+          <div className="shrink-0 md:hidden">
             <button
               onClick={() => setShowActionsMenu((p) => !p)}
               className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-lg leading-none"
@@ -688,104 +676,6 @@ export function EditDeckPage() {
             >
               ⋮
             </button>
-            {showActionsMenu && (
-              <div className="absolute right-0 top-full mt-1 bg-gray-800 border border-gray-700 rounded shadow-xl py-1 min-w-[200px] z-50">
-                {/* Sort + View */}
-                {!bulkEditMode && (
-                  <div className="px-3 py-2 border-b border-gray-700 space-y-2">
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1.5">Sort by</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { setSortBy('name'); setShowActionsMenu(false) }}
-                          className={`px-2.5 py-1 rounded text-xs ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
-                        >
-                          Name
-                        </button>
-                        <button
-                          onClick={() => { setSortBy('cmc'); setShowActionsMenu(false) }}
-                          className={`px-2.5 py-1 rounded text-xs ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
-                        >
-                          Mana Value
-                        </button>
-                      </div>
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-500 mb-1.5">View</p>
-                      <div className="flex gap-2">
-                        <button
-                          onClick={() => { setViewMode('stacks'); setShowActionsMenu(false) }}
-                          className={`px-2.5 py-1 rounded text-xs ${viewMode === 'stacks' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
-                        >
-                          Stacks
-                        </button>
-                        <button
-                          onClick={() => { setViewMode('grid'); setShowActionsMenu(false) }}
-                          className={`px-2.5 py-1 rounded text-xs ${viewMode === 'grid' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
-                        >
-                          Grid
-                        </button>
-                      </div>
-                    </div>
-                  </div>
-                )}
-                {showSuggestionsButton && (
-                  <button
-                    onClick={() => { setShowSuggestions(true); setShowActionsMenu(false) }}
-                    className="w-full text-left px-3 py-2.5 text-sm text-purple-400 hover:bg-gray-700"
-                  >
-                    Suggestions
-                  </button>
-                )}
-                {showResultsButton && (
-                  <button
-                    onClick={() => { setShowResults(true); setShowActionsMenu(false) }}
-                    className="w-full text-left px-3 py-2.5 text-sm text-amber-400 hover:bg-gray-700"
-                  >
-                    Results
-                  </button>
-                )}
-                <Link
-                  to={`/compare?deck=${id}`}
-                  className="block px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
-                  onClick={() => setShowActionsMenu(false)}
-                >
-                  Compare
-                </Link>
-                <a
-                  href={`/deck/${id}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="block px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
-                  onClick={() => setShowActionsMenu(false)}
-                >
-                  Share
-                </a>
-                <button
-                  onClick={() => { setShowEditForm(!showEditForm); setShowActionsMenu(false) }}
-                  className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
-                >
-                  Edit Details
-                </button>
-                <button
-                  onClick={() => {
-                    if (bulkEditMode) { setBulkEditMode(false); setBulkEditErrors([]) } else { enterBulkEdit() }
-                    setShowActionsMenu(false)
-                  }}
-                  className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
-                >
-                  {bulkEditMode ? 'Exit Bulk Edit' : 'Bulk Edit'}
-                </button>
-                {bulkEditMode && (
-                  <button
-                    onClick={() => { setShowImportModal(true); setShowActionsMenu(false) }}
-                    className="w-full text-left px-3 py-2.5 text-sm text-gray-300 hover:bg-gray-700"
-                  >
-                    Import
-                  </button>
-                )}
-              </div>
-            )}
           </div>
 
           {/* Desktop: flat buttons */}
@@ -1270,6 +1160,126 @@ export function EditDeckPage() {
             </div>
           </div>
         </div>
+      )}
+
+      {/* Mobile actions bottom sheet */}
+      {showActionsMenu && createPortal(
+        <div
+          className="fixed inset-0 bg-black/60 z-50 flex flex-col justify-end md:hidden touch-none"
+          onClick={() => setShowActionsMenu(false)}
+        >
+          <div
+            className="bg-gray-800 border-t border-gray-700 rounded-t-2xl w-full max-h-[85vh] flex flex-col touch-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex justify-center pt-3 pb-2 shrink-0">
+              <div className="w-10 h-1 bg-gray-600 rounded-full" />
+            </div>
+            <div className="overflow-y-auto overscroll-contain pb-8">
+              {/* Sort + View — hidden in bulk edit */}
+              {!bulkEditMode && (
+                <div className="px-4 py-3 border-b border-gray-700 space-y-3">
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">Sort by</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setSortBy('name'); setShowActionsMenu(false) }}
+                        className={`px-3 py-1.5 rounded text-sm ${sortBy === 'name' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                      >
+                        Name
+                      </button>
+                      <button
+                        onClick={() => { setSortBy('cmc'); setShowActionsMenu(false) }}
+                        className={`px-3 py-1.5 rounded text-sm ${sortBy === 'cmc' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                      >
+                        Mana Value
+                      </button>
+                    </div>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-500 mb-2">View</p>
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => { setViewMode('stacks'); setShowActionsMenu(false) }}
+                        className={`px-3 py-1.5 rounded text-sm ${viewMode === 'stacks' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                      >
+                        Stacks
+                      </button>
+                      <button
+                        onClick={() => { setViewMode('grid'); setShowActionsMenu(false) }}
+                        className={`px-3 py-1.5 rounded text-sm ${viewMode === 'grid' ? 'bg-gray-600 text-white' : 'text-gray-400 bg-gray-700'}`}
+                      >
+                        Grid
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              )}
+              {showSuggestionsButton && (
+                <button
+                  onClick={() => { setShowSuggestions(true); setShowActionsMenu(false) }}
+                  className="w-full text-left px-4 py-3.5 text-sm text-purple-400 hover:bg-gray-700"
+                >
+                  Suggestions
+                </button>
+              )}
+              {showResultsButton && (
+                <button
+                  onClick={() => { setShowResults(true); setShowActionsMenu(false) }}
+                  className="w-full text-left px-4 py-3.5 text-sm text-amber-400 hover:bg-gray-700"
+                >
+                  Results
+                </button>
+              )}
+              <Link
+                to={`/compare?deck=${id}`}
+                className="block px-4 py-3.5 text-sm text-gray-300 hover:bg-gray-700 border-t border-gray-700"
+                onClick={() => setShowActionsMenu(false)}
+              >
+                Compare
+              </Link>
+              <a
+                href={`/deck/${id}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="block px-4 py-3.5 text-sm text-gray-300 hover:bg-gray-700 border-t border-gray-700"
+                onClick={() => setShowActionsMenu(false)}
+              >
+                Share
+              </a>
+              <button
+                onClick={() => { setShowEditForm(!showEditForm); setShowActionsMenu(false) }}
+                className="w-full text-left px-4 py-3.5 text-sm text-gray-300 hover:bg-gray-700 border-t border-gray-700"
+              >
+                Edit Details
+              </button>
+              <button
+                onClick={() => {
+                  if (bulkEditMode) { setBulkEditMode(false); setBulkEditErrors([]) } else { enterBulkEdit() }
+                  setShowActionsMenu(false)
+                }}
+                className="w-full text-left px-4 py-3.5 text-sm text-gray-300 hover:bg-gray-700 border-t border-gray-700"
+              >
+                {bulkEditMode ? 'Exit Bulk Edit' : 'Bulk Edit'}
+              </button>
+              {bulkEditMode && (
+                <button
+                  onClick={() => { setShowImportModal(true); setShowActionsMenu(false) }}
+                  className="w-full text-left px-4 py-3.5 text-sm text-gray-300 hover:bg-gray-700 border-t border-gray-700"
+                >
+                  Import
+                </button>
+              )}
+              <button
+                onClick={() => setShowActionsMenu(false)}
+                className="w-full text-center px-4 py-3.5 text-sm text-gray-400 border-t border-gray-700 mt-1"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
       )}
 
       {/* Mobile card action sheet */}
