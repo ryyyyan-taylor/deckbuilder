@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { DeckCard, Card } from '../../hooks/useDeck'
 import { DeckCardItem } from './DeckCardItem'
-import { TYPE_ORDER, getCardType, packColumns } from '../../lib/cards'
+import { TYPE_ORDER, getCardType, isMdfcLandBack, packColumns } from '../../lib/cards'
 import { useMaxColumns } from '../../hooks/useMaxColumns'
 
 export type SortBy = 'name' | 'cmc'
@@ -77,6 +77,12 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
     )
   }
 
+  // Count MDFCs with a land back (non-land front) — shown as "+X MDFC" on the Land header
+  const mdfcLandBackCount = cards.reduce(
+    (sum, dc) => sum + (isMdfcLandBack(dc.card?.type_line ?? null) ? dc.quantity : 0),
+    0
+  )
+
   // Group cards by type
   const grouped = new Map<string, DeckCard[]>()
   for (const dc of cards) {
@@ -106,6 +112,9 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
                 <div key={type}>
                   <h4 className="text-xs font-medium text-gray-400 mb-2">
                     {type} <span className="text-gray-600">({typeCount})</span>
+                    {type === 'Land' && mdfcLandBackCount > 0 && (
+                      <span className="text-gray-600 ml-1">+{mdfcLandBackCount} MDFC</span>
+                    )}
                   </h4>
                   {/* Cards in rows; each row overlaps the one below vertically (130px strip visible per row, 150px overlap) */}
                   <div className="flex flex-wrap" style={{ rowGap: 0, paddingBottom: '150px' }}>
@@ -163,6 +172,9 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
                   <div key={type}>
                     <h4 className="text-xs font-medium text-gray-400 mb-2">
                       {type} <span className="text-gray-600">({typeCount})</span>
+                      {type === 'Land' && mdfcLandBackCount > 0 && (
+                        <span className="text-gray-600 ml-1">+{mdfcLandBackCount} MDFC</span>
+                      )}
                     </h4>
                     <div className="flex flex-col">
                       {typeCards.map((dc, i) => (

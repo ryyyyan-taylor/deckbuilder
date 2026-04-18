@@ -131,7 +131,9 @@ export function commanderToSlug(name: string): string {
 
 export function getCardType(typeLine: string | null): string {
   if (!typeLine) return 'Other'
-  const main = typeLine.split(' — ')[0]
+  // For DFCs, only classify by the front face (before ' // ')
+  const front = typeLine.split(' // ')[0]
+  const main = front.split(' — ')[0]
   if (main.includes('Land')) return 'Land'
   if (main.includes('Creature')) return 'Creature'
   if (main.includes('Planeswalker')) return 'Planeswalker'
@@ -141,4 +143,11 @@ export function getCardType(typeLine: string | null): string {
   if (main.includes('Enchantment')) return 'Enchantment'
   if (main.includes('Artifact')) return 'Artifact'
   return 'Other'
+}
+
+/** True for MDFCs whose back face is a land but front face is not (e.g. Bala Ged Recovery // Bala Ged Sanctuary) */
+export function isMdfcLandBack(typeLine: string | null): boolean {
+  if (!typeLine || !typeLine.includes(' // ')) return false
+  const [front, back] = typeLine.split(' // ')
+  return !front.split(' — ')[0].includes('Land') && back.split(' — ')[0].includes('Land')
 }
