@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
+import { validateCommanderName, validateCardNames, ValidationError } from "../../src/lib/validation";
+import { env } from "../../src/lib/env";
+import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../../src/lib/rateLimit";
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 interface EdhrecCard {
   name: string;
@@ -70,18 +70,28 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const commander = req.query.commander;
-  if (!commander || typeof commander !== "string") {
-    return res.status(400).json({ error: "Missing commander query parameter" });
+  // Rate limiting
+  const clientIp = req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown";
+  const rateLimitKey = `edhrec:${clientIp}`;
+  if (!checkRateLimit(rateLimitKey, RATE_LIMITS.SUGGESTIONS_EDHREC.limit, RATE_LIMITS.SUGGESTIONS_EDHREC.window)) {
+    res.setHeader("X-RateLimit-Remaining", "0");
+    res.setHeader("X-RateLimit-Reset", getRateLimitReset(rateLimitKey));
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
 
-  // Partner commanders: "Name A / Name B" → "name-a/name-b" for EDHREC URL
-  const slug = commander
-    .split(" / ")
-    .map((part) => commanderToSlug(part.trim()))
-    .join("/");
+  const remaining = getRateLimitRemaining(rateLimitKey, RATE_LIMITS.SUGGESTIONS_EDHREC.limit);
+  res.setHeader("X-RateLimit-Remaining", remaining);
 
   try {
+    const commander = req.query.commander;
+    const commanderName = validateCommanderName(commander);
+
+    // Partner commanders: "Name A / Name B" → "name-a/name-b" for EDHREC URL
+    const slug = commanderName
+      .split(" / ")
+      .map((part) => commanderToSlug(part.trim()))
+      .join("/");
+
     // Check cache
     const { data: cached } = await supabase
       .from("edhrec_cache")
@@ -99,13 +109,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // Fetch from EDHREC
     const edhrecRes = await fetch(
       `https://json.edhrec.com/pages/commanders/${slug}.json`,
-      { headers: { "User-Agent": "MTGDeckBuilder/1.0" } }
+      {
+        headers: { "User-Agent": "MTGDeckBuilder/1.0" },
+        signal: AbortSignal.timeout(10000),
+      }
     );
 
     if (!edhrecRes.ok) {
+      console.error("[API] edhrec fetch failed", { commander: commanderName, slug, status: edhrecRes.status });
       return res
         .status(edhrecRes.status === 404 ? 404 : 502)
-        .json({ error: `EDHREC returned ${edhrecRes.status}` });
+        .json({ error: `Failed to fetch EDHREC suggestions` });
     }
 
     const edhrecData: EdhrecResponse = await edhrecRes.json();
@@ -131,10 +145,9 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       });
     }
 
-    // Collect all unique card names for DB lookup
-    const allCardNames = [
-      ...new Set(categories.flatMap((cat) => cat.cards.map((c) => c.name))),
-    ];
+    // Collect and validate all unique card names for DB lookup
+    const rawCardNames = [...new Set(categories.flatMap((cat) => cat.cards.map((c) => c.name)))];
+    const allCardNames = validateCardNames(rawCardNames);
 
     // Look up cards in our DB by name
     const { data: dbCards } = await supabase
@@ -222,13 +235,22 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
 
     // Upsert cache
-    await supabase.from("edhrec_cache").upsert(
+    const { error: cacheError } = await supabase.from("edhrec_cache").upsert(
       { commander_name: slug, data: result, fetched_at: new Date().toISOString() },
       { onConflict: "commander_name" }
     );
+    if (cacheError) {
+      console.error("[API] edhrec cache upsert failed", { commander: commanderName, error: cacheError.message });
+    }
 
     return res.status(200).json(result);
-  } catch {
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      console.warn("[API] validation error", { error: err.message });
+      return res.status(400).json({ error: err.message });
+    }
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[API] edhrec error", { error: errorMsg });
     return res.status(500).json({ error: "Failed to fetch EDHREC suggestions" });
   }
 }

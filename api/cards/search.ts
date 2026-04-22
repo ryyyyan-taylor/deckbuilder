@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
+import { validateQuery, ValidationError } from "../../src/lib/validation";
+import { env } from "../../src/lib/env";
+import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../../src/lib/rateLimit";
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 interface ScryfallCard {
   id: string;
@@ -51,31 +51,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const q = req.query.q;
-  if (!q || typeof q !== "string") {
-    return res.status(400).json({ error: "Missing query parameter: q" });
+  // Rate limiting
+  const clientIp = req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown";
+  const rateLimitKey = `cards-search:${clientIp}`;
+  if (!checkRateLimit(rateLimitKey, RATE_LIMITS.CARDS_SEARCH.limit, RATE_LIMITS.CARDS_SEARCH.window)) {
+    res.setHeader("X-RateLimit-Remaining", "0");
+    res.setHeader("X-RateLimit-Reset", getRateLimitReset(rateLimitKey));
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
 
-  // 1. Check Supabase cache first
-  const { data: cached, error: cacheError } = await supabase
-    .from("cards")
-    .select("*")
-    .ilike("name", `%${q}%`)
-    .limit(20);
+  const remaining = getRateLimitRemaining(rateLimitKey, RATE_LIMITS.CARDS_SEARCH.limit);
+  res.setHeader("X-RateLimit-Remaining", remaining);
 
-  if (!cacheError && cached && cached.length > 0) {
-    return res.status(200).json({ data: cached, source: "cache" });
-  }
-
-  // 2. Cache miss — fetch from Scryfall
   try {
+    const q = req.query.q;
+    const query = validateQuery(q);
+
+    // 1. Check Supabase cache first
+    const { data: cached, error: cacheError } = await supabase
+      .from("cards")
+      .select("*")
+      .ilike("name", `%${query}%`)
+      .limit(20);
+
+    if (!cacheError && cached && cached.length > 0) {
+      return res.status(200).json({ data: cached, source: "cache" });
+    }
+
+    // 2. Cache miss — fetch from Scryfall
     const scryfallRes = await fetch(
-      `https://api.scryfall.com/cards/search?q=${encodeURIComponent(q)}&unique=cards&order=name`
+      `https://api.scryfall.com/cards/search?q=${encodeURIComponent(query)}&unique=cards&order=name`,
+      { signal: AbortSignal.timeout(10000) }
     );
 
     if (!scryfallRes.ok) {
-      const err = await scryfallRes.json();
-      return res.status(scryfallRes.status).json({ error: err.details ?? "Scryfall search failed" });
+      console.error("[API] scryfall search failed", { query, status: scryfallRes.status });
+      return res.status(502).json({ error: "Failed to search cards" });
     }
 
     const scryfallData = await scryfallRes.json();
@@ -84,9 +95,12 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 3. Write results back to cache
     const rows = cards.map(scryfallToRow);
     if (rows.length > 0) {
-      await supabase
+      const { error: upsertError } = await supabase
         .from("cards")
         .upsert(rows, { onConflict: "scryfall_id" });
+      if (upsertError) {
+        console.error("[API] cache upsert failed", { query, error: upsertError.message });
+      }
     }
 
     // 4. Return the cached-format rows
@@ -96,7 +110,13 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .in("scryfall_id", rows.map((r) => r.scryfall_id));
 
     return res.status(200).json({ data: freshData ?? rows, source: "scryfall" });
-  } catch {
-    return res.status(500).json({ error: "Failed to fetch from Scryfall" });
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      console.warn("[API] validation error", { error: err.message });
+      return res.status(400).json({ error: err.message });
+    }
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[API] card search error", { error: errorMsg });
+    return res.status(500).json({ error: "Failed to search cards" });
   }
 }

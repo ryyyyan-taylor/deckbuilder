@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
+import { validateString, ValidationError } from "../../src/lib/validation";
+import { env } from "../../src/lib/env";
+import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../../src/lib/rateLimit";
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 interface ScryfallCard {
   id: string;
@@ -35,31 +35,42 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { scryfall_id } = req.query;
-  if (!scryfall_id || typeof scryfall_id !== "string") {
-    return res.status(400).json({ error: "Missing scryfall_id" });
+  // Rate limiting
+  const clientIp = req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown";
+  const rateLimitKey = `cards-single:${clientIp}`;
+  if (!checkRateLimit(rateLimitKey, RATE_LIMITS.CARDS_SINGLE.limit, RATE_LIMITS.CARDS_SINGLE.window)) {
+    res.setHeader("X-RateLimit-Remaining", "0");
+    res.setHeader("X-RateLimit-Reset", getRateLimitReset(rateLimitKey));
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
 
-  // 1. Check Supabase cache
-  const { data: cached, error: cacheError } = await supabase
-    .from("cards")
-    .select("*")
-    .eq("scryfall_id", scryfall_id)
-    .single();
+  const remaining = getRateLimitRemaining(rateLimitKey, RATE_LIMITS.CARDS_SINGLE.limit);
+  res.setHeader("X-RateLimit-Remaining", remaining);
 
-  if (!cacheError && cached) {
-    return res.status(200).json({ data: cached, source: "cache" });
-  }
-
-  // 2. Cache miss — fetch from Scryfall
   try {
+    const { scryfall_id } = req.query;
+    const cardId = validateString(scryfall_id, 50, /^[a-z0-9\-]+$/i);
+
+    // 1. Check Supabase cache
+    const { data: cached, error: cacheError } = await supabase
+      .from("cards")
+      .select("*")
+      .eq("scryfall_id", cardId)
+      .single();
+
+    if (!cacheError && cached) {
+      return res.status(200).json({ data: cached, source: "cache" });
+    }
+
+    // 2. Cache miss — fetch from Scryfall
     const scryfallRes = await fetch(
-      `https://api.scryfall.com/cards/${encodeURIComponent(scryfall_id)}`
+      `https://api.scryfall.com/cards/${encodeURIComponent(cardId)}`,
+      { signal: AbortSignal.timeout(10000) }
     );
 
     if (!scryfallRes.ok) {
-      const err = await scryfallRes.json();
-      return res.status(scryfallRes.status).json({ error: err.details ?? "Card not found" });
+      console.error("[API] scryfall card fetch failed", { cardId, status: scryfallRes.status });
+      return res.status(scryfallRes.status === 404 ? 404 : 502).json({ error: "Card not found" });
     }
 
     const card: ScryfallCard = await scryfallRes.json();
@@ -77,14 +88,24 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       image_uris: pickImageUris(card),
     };
 
-    const { data: inserted } = await supabase
+    const { data: inserted, error: insertError } = await supabase
       .from("cards")
       .upsert(row, { onConflict: "scryfall_id" })
       .select()
       .single();
 
+    if (insertError) {
+      console.error("[API] card cache upsert failed", { cardId, error: insertError.message });
+    }
+
     return res.status(200).json({ data: inserted ?? row, source: "scryfall" });
-  } catch {
-    return res.status(500).json({ error: "Failed to fetch from Scryfall" });
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      console.warn("[API] validation error", { error: err.message });
+      return res.status(400).json({ error: err.message });
+    }
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[API] card fetch error", { error: errorMsg });
+    return res.status(500).json({ error: "Failed to fetch card" });
   }
 }

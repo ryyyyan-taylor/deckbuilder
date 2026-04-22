@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
+import { validateCommanderName, ValidationError } from "../../src/lib/validation";
+import { env } from "../../src/lib/env";
+import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../../src/lib/rateLimit";
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -32,14 +32,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const commander = req.query.commander;
-  if (!commander || typeof commander !== "string") {
-    return res.status(400).json({ error: "Missing commander query parameter" });
+  // Rate limiting
+  const clientIp = req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown";
+  const rateLimitKey = `edhtop16:${clientIp}`;
+  if (!checkRateLimit(rateLimitKey, RATE_LIMITS.RESULTS_TOURNAMENT.limit, RATE_LIMITS.RESULTS_TOURNAMENT.window)) {
+    res.setHeader("X-RateLimit-Remaining", "0");
+    res.setHeader("X-RateLimit-Reset", getRateLimitReset(rateLimitKey));
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
 
-  const commanderLower = commander.toLowerCase();
+  const remaining = getRateLimitRemaining(rateLimitKey, RATE_LIMITS.RESULTS_TOURNAMENT.limit);
+  res.setHeader("X-RateLimit-Remaining", remaining);
 
   try {
+    const commander = req.query.commander;
+    const commanderName = validateCommanderName(commander);
+    const commanderLower = commanderName.toLowerCase();
+
     // Check cache
     const { data: cached } = await supabase
       .from("tournament_cache")
@@ -91,22 +100,21 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       body: JSON.stringify({
         query,
-        variables: { name: commander },
+        variables: { name: commanderName },
       }),
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!gqlRes.ok) {
-      return res
-        .status(502)
-        .json({ error: `EDHTop16 returned ${gqlRes.status}` });
+      console.error("[API] edhtop16 fetch failed", { commander: commanderName, status: gqlRes.status });
+      return res.status(502).json({ error: "Failed to fetch EDHTop16 results" });
     }
 
     const gqlData = await gqlRes.json();
 
     if (gqlData.errors) {
-      return res
-        .status(502)
-        .json({ error: gqlData.errors[0]?.message ?? "GraphQL error" });
+      console.error("[API] edhtop16 graphql error", { commander: commanderName, errors: gqlData.errors });
+      return res.status(502).json({ error: "Failed to fetch EDHTop16 results" });
     }
 
     const edges: GqlEntry[] = gqlData?.data?.commander?.entries?.edges ?? [];
@@ -126,7 +134,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const result = { results };
 
     // Upsert cache
-    await supabase.from("tournament_cache").upsert(
+    const { error: cacheError } = await supabase.from("tournament_cache").upsert(
       {
         commander_name: commanderLower,
         source: "edhtop16",
@@ -135,9 +143,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       { onConflict: "commander_name,source" }
     );
+    if (cacheError) {
+      console.error("[API] edhtop16 cache upsert failed", { commander: commanderName, error: cacheError.message });
+    }
 
     return res.status(200).json(result);
-  } catch {
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      console.warn("[API] validation error", { error: err.message });
+      return res.status(400).json({ error: err.message });
+    }
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[API] edhtop16 error", { error: errorMsg });
     return res.status(500).json({ error: "Failed to fetch EDHTop16 results" });
   }
 }

@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
+import { validateMoxfieldUrl, validateCardNames, ValidationError } from "../../src/lib/validation";
+import { env } from "../../src/lib/env";
+import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../../src/lib/rateLimit";
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 interface MoxfieldCard {
   card: {
@@ -84,19 +84,26 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const { url } = req.body ?? {};
-  if (!url || typeof url !== "string") {
-    return res.status(400).json({ error: "Missing url in request body" });
+  // Rate limiting
+  const clientIp = req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown";
+  const rateLimitKey = `moxfield-import:${clientIp}`;
+  if (!checkRateLimit(rateLimitKey, RATE_LIMITS.IMPORT_MOXFIELD.limit, RATE_LIMITS.IMPORT_MOXFIELD.window)) {
+    res.setHeader("X-RateLimit-Remaining", "0");
+    res.setHeader("X-RateLimit-Reset", getRateLimitReset(rateLimitKey));
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
 
-  // Extract deck ID from Moxfield URL
-  const match = url.match(/\/decks\/([a-zA-Z0-9_-]+)/);
-  if (!match) {
-    return res.status(400).json({ error: "Invalid Moxfield URL" });
-  }
-  const deckId = match[1];
+  const remaining = getRateLimitRemaining(rateLimitKey, RATE_LIMITS.IMPORT_MOXFIELD.limit);
+  res.setHeader("X-RateLimit-Remaining", remaining);
 
   try {
+    const { url } = req.body ?? {};
+
+    // Input validation
+    const deckId = validateMoxfieldUrl(url);
+
+    const startTime = Date.now();
+
     const moxRes = await fetch(
       `https://api2.moxfield.com/v2/decks/all/${deckId}`,
       {
@@ -104,12 +111,18 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           "User-Agent": "MTGDeckBuilder/1.0",
           "Accept": "application/json",
         },
+        signal: AbortSignal.timeout(10000), // 10 second timeout
       }
     );
     if (!moxRes.ok) {
+      console.error("[API] moxfield import failed", {
+        deckId,
+        status: moxRes.status,
+        duration: Date.now() - startTime,
+      });
       return res
-        .status(moxRes.status)
-        .json({ error: `Failed to fetch deck from Moxfield (${moxRes.status})` });
+        .status(moxRes.status === 404 ? 404 : 502)
+        .json({ error: `Failed to fetch deck from Moxfield` });
     }
 
     const moxDeck: MoxfieldDeck = await moxRes.json();
@@ -143,6 +156,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .in("scryfall_id", scryfallIds);
 
     if (existError) {
+      console.error("[API] card lookup failed", { deckId, error: existError.message });
       return res.status(500).json({ error: "Failed to look up cards" });
     }
 
@@ -188,6 +202,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .in("scryfall_id", scryfallIds);
 
     if (dbError || !dbCards) {
+      console.error("[API] final card lookup failed", { deckId, error: dbError?.message });
       return res.status(500).json({ error: "Failed to look up cards" });
     }
 
@@ -247,7 +262,17 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const usedSections = [...new Set(result.map((c) => c.section))];
 
     return res.status(200).json({ name: moxDeck.name, cards: result, sections: usedSections });
-  } catch {
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      console.warn("[API] validation error", { error: err.message });
+      return res.status(400).json({ error: err.message });
+    }
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[API] moxfield import error", {
+      deckId: (err as any)?.deckId || "unknown",
+      error: errorMsg,
+      duration: Date.now() - ((err as any)?.startTime || Date.now()),
+    });
     return res.status(500).json({ error: "Failed to import from Moxfield" });
   }
 }

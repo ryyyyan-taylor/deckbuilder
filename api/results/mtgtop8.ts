@@ -1,11 +1,11 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
 import * as cheerio from "cheerio";
+import { validateCommanderName, ValidationError } from "../../src/lib/validation";
+import { env } from "../../src/lib/env";
+import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../../src/lib/rateLimit";
 
-const supabase = createClient(
-  process.env.VITE_SUPABASE_URL!,
-  process.env.SUPABASE_SERVICE_ROLE_KEY!
-);
+const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
 const CACHE_TTL = 6 * 60 * 60 * 1000; // 6 hours
 
@@ -23,14 +23,23 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  const commander = req.query.commander;
-  if (!commander || typeof commander !== "string") {
-    return res.status(400).json({ error: "Missing commander query parameter" });
+  // Rate limiting
+  const clientIp = req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown";
+  const rateLimitKey = `mtgtop8:${clientIp}`;
+  if (!checkRateLimit(rateLimitKey, RATE_LIMITS.RESULTS_TOURNAMENT.limit, RATE_LIMITS.RESULTS_TOURNAMENT.window)) {
+    res.setHeader("X-RateLimit-Remaining", "0");
+    res.setHeader("X-RateLimit-Reset", getRateLimitReset(rateLimitKey));
+    return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
 
-  const commanderLower = commander.toLowerCase();
+  const remaining = getRateLimitRemaining(rateLimitKey, RATE_LIMITS.RESULTS_TOURNAMENT.limit);
+  res.setHeader("X-RateLimit-Remaining", remaining);
 
   try {
+    const commander = req.query.commander;
+    const commanderName = validateCommanderName(commander);
+    const commanderLower = commanderName.toLowerCase();
+
     // Check cache
     const { data: cached } = await supabase
       .from("tournament_cache")
@@ -47,14 +56,16 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // Search MTGTop8 for Duel Commander results
-    const searchUrl = `https://www.mtgtop8.com/search?MD_check=1&SB_check=1&cards=${encodeURIComponent(commander)}&format=EDH`;
+    const searchUrl = `https://www.mtgtop8.com/search?MD_check=1&SB_check=1&cards=${encodeURIComponent(commanderName)}&format=EDH`;
     const mtgRes = await fetch(searchUrl, {
       headers: { "User-Agent": "MTGDeckBuilder/1.0" },
+      signal: AbortSignal.timeout(10000),
     });
 
     if (!mtgRes.ok) {
+      console.error("[API] mtgtop8 fetch failed", { commander: commanderName, status: mtgRes.status });
       return res.status(502).json({
-        error: `MTGTop8 returned ${mtgRes.status}`,
+        error: "Failed to fetch MTGTop8 results",
         fallback_url: searchUrl,
       });
     }
@@ -114,7 +125,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     };
 
     // Upsert cache
-    await supabase.from("tournament_cache").upsert(
+    const { error: cacheError } = await supabase.from("tournament_cache").upsert(
       {
         commander_name: commanderLower,
         source: "mtgtop8",
@@ -123,10 +134,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       },
       { onConflict: "commander_name,source" }
     );
+    if (cacheError) {
+      console.error("[API] mtgtop8 cache upsert failed", { commander: commanderName, error: cacheError.message });
+    }
 
     return res.status(200).json(result);
-  } catch {
-    const searchUrl = `https://www.mtgtop8.com/search?MD_check=1&SB_check=1&cards=${encodeURIComponent(commander)}&format=EDH`;
+  } catch (err) {
+    if (err instanceof ValidationError) {
+      console.warn("[API] validation error", { error: err.message });
+      return res.status(400).json({ error: err.message });
+    }
+    const errorMsg = err instanceof Error ? err.message : "Unknown error";
+    console.error("[API] mtgtop8 error", { error: errorMsg });
+    const searchUrl = `https://www.mtgtop8.com/search?MD_check=1&SB_check=1&cards=${encodeURIComponent(req.query.commander as string)}&format=EDH`;
     return res.status(500).json({
       error: "Failed to fetch MTGTop8 results",
       fallback_url: searchUrl,
