@@ -2,6 +2,7 @@ import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-route
 import { AuthContext, useAuthProvider } from './hooks/useAuth'
 import { AuthForm } from './components/auth/AuthForm'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
+import { ErrorBoundary } from './components/ErrorBoundary'
 import { NavLayout } from './components/layout/NavLayout'
 import { PublicDecksPage } from './components/deck/PublicDecksPage'
 import { DeckList } from './components/deck/DeckList'
@@ -54,9 +55,10 @@ function App() {
   const auth = useAuthProvider()
 
   return (
-    <AuthContext.Provider value={auth}>
-      <BrowserRouter>
-        <Routes>
+    <ErrorBoundary>
+      <AuthContext.Provider value={auth}>
+        <BrowserRouter>
+          <Routes>
           {/* Public deck view — no nav chrome */}
           <Route path="/deck/:id" element={<ViewDeckPage />} />
 
@@ -83,8 +85,9 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
-      </BrowserRouter>
-    </AuthContext.Provider>
+        </BrowserRouter>
+      </AuthContext.Provider>
+    </ErrorBoundary>
   )
 }
 

@@ -14,9 +14,24 @@ function parseMtgTop8Date(dateStr: string): string {
   // Format: DD/MM/YY → YYYY-MM-DD
   const match = dateStr.match(/^(\d{2})\/(\d{2})\/(\d{2})$/);
   if (!match) return dateStr;
-  const [, day, month, year] = match;
-  const fullYear = parseInt(year, 10) >= 70 ? `19${year}` : `20${year}`;
-  return `${fullYear}-${month}-${day}`;
+
+  const [, dayStr, monthStr, yearStr] = match;
+  const day = parseInt(dayStr, 10);
+  const month = parseInt(monthStr, 10);
+  const year = parseInt(yearStr, 10);
+
+  // Validate ranges
+  if (month < 1 || month > 12) return dateStr;
+  if (day < 1 || day > 31) return dateStr;
+
+  // Y2K pivot: >= 70 → 19XX, < 70 → 20XX
+  const fullYear = year >= 70 ? `19${yearStr}` : `20${yearStr}`;
+
+  // Format with zero-padding
+  const paddedMonth = monthStr.padStart(2, '0');
+  const paddedDay = dayStr.padStart(2, '0');
+
+  return `${fullYear}-${paddedMonth}-${paddedDay}`;
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -85,6 +100,19 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const html = await mtgRes.text();
+
+    // Validate HTML structure before parsing
+    if (!html.includes("hover_tr") || html.length < 100) {
+      console.error("[API] mtgtop8 invalid HTML structure", {
+        commander: commanderName,
+        htmlLength: html.length,
+      });
+      return res.status(502).json({
+        error: "Invalid response from MTGTop8",
+        fallback_url: searchUrl,
+      });
+    }
+
     const $ = cheerio.load(html);
 
     const results: {
