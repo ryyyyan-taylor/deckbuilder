@@ -126,6 +126,21 @@ Set in `.env.local` locally and in Vercel dashboard for deployment.
 - MTGTop8 scraping: HTML parsed with cheerio, results in `tr.hover_tr` rows with 8 columns, dates in DD/MM/YY format, includes `fallback_url` on scraping failure
 - Formats with commander section: Commander, cEDH, Duel Commander (all get Commander+Mainboard+Sideboard default sections)
 
+## Security & Reliability
+
+The application is production-hardened with comprehensive security controls:
+
+- **Input Validation**: All API endpoints validate and sanitize user input (card names, URLs, commander names, query strings)
+- **Rate Limiting**: Per-IP rate limiting on all endpoints (20–100 req/min depending on endpoint cost)
+- **CORS & Headers**: Origin verification on expensive endpoints; 7 OWASP security headers (CSP, HSTS, X-Frame-Options, etc.)
+- **Type Safety**: Runtime schema validation on all API responses; TypeScript strict mode throughout
+- **Error Handling**: React error boundary + structured logging with context; graceful fallbacks on API failures
+- **Environment Isolation**: Service role key never exposed to client; proper env var validation at startup
+- **Caching Safety**: All external data cached server-side (EDHREC 24h, tournament 6h); Supabase RLS enforces access control
+- **API Timeouts**: 10-second timeout on all external API calls (Moxfield, EDHREC, EDHTop16, MTGTop8)
+
+See `QA_CHECKLIST.md` for full security audit and `API.md` for endpoint documentation.
+
 ## MVP Progress
 
-See `checklist.md` for current status. MVP complete and deployed. Post-MVP additions: Stats section, section drag-and-drop reordering, CI pipeline, FFD bin-packing improvement, flat header buttons, bulk edit mode, Commander section protection, saved-deck compare sources, deck sandbox.
+See `checklist.md` for current status. MVP complete and deployed. Post-MVP additions: Stats section, section drag-and-drop reordering, CI pipeline, FFD bin-packing improvement, flat header buttons, bulk edit mode, Commander section protection, saved-deck compare sources, deck sandbox. Security hardening complete (Phase 1–3 QA review: 21/21 items implemented).

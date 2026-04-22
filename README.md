@@ -81,3 +81,15 @@ Cards are rendered in stacked columns (200px cards in 180px columns with 238px o
 | EDHREC JSON API | Commander card suggestions |
 | EDHTop16 GraphQL API | cEDH tournament results |
 | MTGTop8 (scraped) | Duel Commander tournament results |
+
+### Security & Reliability
+
+- **Input Validation** — All API endpoints validate and sanitize user input
+- **Rate Limiting** — Per-IP rate limits (20–100 req/min) prevent abuse
+- **CORS & Security Headers** — Origin verification + 7 OWASP standard headers
+- **Type Safety** — Full TypeScript strict mode + runtime schema validation
+- **Error Handling** — React error boundary + structured logging with graceful fallbacks
+- **Caching** — All external data cached server-side; RLS ensures proper access control
+- **Timeouts** — 10-second timeout on all external API calls
+
+See [QA_CHECKLIST.md](QA_CHECKLIST.md) for the full security audit (21/21 items implemented).
