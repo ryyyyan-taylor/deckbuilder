@@ -158,83 +158,81 @@ Review Status: In Progress
 
 ### Observability & Monitoring
 
-- [ ] **Implement structured logging throughout API**
-  - Current: Only generic error messages
-  - Solution: Use centralized logging (Sentry, LogRocket, or stderr)
-  - Include in logs:
-    - [ ] Request method, path, status code
-    - [ ] Error messages with context
-    - [ ] Performance metrics (API call duration)
-    - [ ] User action outcomes (deck created, card added, etc.)
-  - Create `src/lib/logger.ts` utility
+- [x] **Implement structured logging throughout API** ✅
+  - Created: `src/lib/logger.ts` utility ✅
+  - Implemented:
+    - [x] `logger.info()`, `logger.warn()`, `logger.error()`, `logger.debug()`
+    - [x] `logApiRequest()` - Request method, path, status, duration
+    - [x] `logApiError()` - Error context logging
+    - [x] `logUserAction()` - User action tracking
+  - Features:
+    - [x] Timestamp + structured context
+    - [x] Development-only debug logs
 
-- [ ] **Add error boundary component to frontend**
-  - Issue: Unhandled errors can crash entire app
-  - File: Create `src/components/ErrorBoundary.tsx`
-  - Wrap in: `src/App.tsx`
-  - Should catch and display errors gracefully
+- [x] **Add error boundary component to frontend** ✅
+  - Created: `src/components/ErrorBoundary.tsx` ✅
+  - Wrapped in: `src/App.tsx` ✅
+  - Features:
+    - [x] Catches unhandled React errors
+    - [x] Shows friendly error message
+    - [x] Stack trace in development mode
+    - [x] Logs errors via logger
 
 ### Configuration & Documentation
 
-- [ ] **Create `.env.example` file**
-  - Current: Only `.env.local` with real values
-  - Solution: Create template for developers
-  - Include all required vars with descriptions:
-    ```
-    VITE_SUPABASE_URL=https://your-project.supabase.co
-    VITE_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIs...
-    SUPABASE_SERVICE_ROLE_KEY=eyJhbGciOiJIUzI1NiIs...
-    ```
+- [x] **Update `.env.example` file** ✅
+  - Added new environment variables:
+    - [x] `VITE_USER_AGENT` (optional, default: MTGDeckBuilder/1.0)
+    - [x] `CACHE_TTL_EDHREC` (optional, default: 24 hours)
+    - [x] `CACHE_TTL_TOURNAMENT` (optional, default: 6 hours)
+    - [x] `FRONTEND_URL` (optional, default: localhost)
 
-- [ ] **Move hardcoded User-Agent strings to config**
-  - Files: Multiple API routes use `"MTGDeckBuilder/1.0"`
-  - Solution: Move to environment variable or constant
-  - Create `src/lib/constants.ts`:
-    ```typescript
-    export const USER_AGENT = process.env.VITE_USER_AGENT || 'MTGDeckBuilder/1.0';
-    ```
+- [x] **Move hardcoded values to config** ✅
+  - Created: `api/_lib/constants.ts` ✅
+  - Externalized:
+    - [x] `USER_AGENT` from `"MTGDeckBuilder/1.0"` → env var
+    - [x] `CACHE_TTL.EDHREC` from hardcoded 24h → `CACHE_TTL_EDHREC` env
+    - [x] `CACHE_TTL.TOURNAMENT` from hardcoded 6h → `CACHE_TTL_TOURNAMENT` env
+    - [x] `API_TIMEOUT` constant (10s)
+    - [x] `SCRYFALL_BATCH_SIZE` constant (75)
 
-- [ ] **Externalize cache TTL values**
-  - Files: `api/suggestions/edhrec.ts` (24h), `api/results/*.ts` (6h)
-  - Current: Hardcoded in code
-  - Solution: Move to environment variables
-    ```
-    CACHE_TTL_EDHREC=86400000
-    CACHE_TTL_TOURNAMENT=21600000
-    ```
+- [x] **Document API endpoints** ✅
+  - Created: `API.md` (comprehensive documentation) ✅
+  - Includes:
+    - [x] 6 API endpoint specs with request/response examples
+    - [x] Rate limits per endpoint
+    - [x] CORS and header documentation
+    - [x] Error response formats
+    - [x] Caching behavior & TTLs
+    - [x] Health check endpoint
+    - [x] cURL examples for each endpoint
 
 ### Edge Cases & Parsing
 
-- [ ] **Fix date parsing edge case in MTGTop8**
-  - File: `api/results/mtgtop8.ts` (line 17)
-  - Issue: `DD/MM/YY` format with Y2K-like pivot at year 70
-  - Risk: Dates before 1970 misinterpreted
-  - Fix: Use more explicit date validation
-    ```typescript
-    function parseMtgTop8Date(dateStr: string): string {
-      const [day, month, year] = dateStr.split('/');
-      const fullYear = parseInt(year) >= 70 ? `19${year}` : `20${year}`;
-      // Validate ranges
-      if (parseInt(month) < 1 || parseInt(month) > 12) return dateStr;
-      if (parseInt(day) < 1 || parseInt(day) > 31) return dateStr;
-      return `${fullYear}-${month}-${day}`;
-    }
-    ```
+- [x] **Fix date parsing edge case in MTGTop8** ✅
+  - File: `api/results/mtgtop8.ts` ✅
+  - Improvements:
+    - [x] Explicit validation for month (1-12)
+    - [x] Explicit validation for day (1-31)
+    - [x] Y2K pivot at year 70 with validation
+    - [x] Zero-padding for output format
+    - [x] Prevents misinterpretation of pre-1970 dates
 
-- [ ] **Validate HTML parsing in MTGTop8 scraper**
-  - File: `api/results/mtgtop8.ts` (line 63)
-  - Issue: If MTGTop8 returns malicious HTML, cheerio could misbehave
-  - Risk: Low, but good defensive programming
-  - Fix: Add HTML structure validation before parsing
+- [x] **Validate HTML parsing in MTGTop8 scraper** ✅
+  - File: `api/results/mtgtop8.ts` ✅
+  - Added:
+    - [x] Check for `hover_tr` class presence
+    - [x] Validate HTML length (min 100 chars)
+    - [x] Returns 502 if HTML structure invalid
+    - [x] Logs invalid responses with context
 
-- [ ] **Add environment validation at startup**
-  - Current: Missing env vars only caught at first API call
-  - Solution: Add health check that validates all required vars
-  - File: `api/health.ts`
-  - Check:
-    - [ ] All required env vars present
-    - [ ] Can connect to Supabase
-    - [ ] External APIs reachable (with timeout)
+- [x] **Add environment validation at startup** ✅
+  - File: `api/health.ts` ✅
+  - Checks:
+    - [x] All required env vars present
+    - [x] Can connect to Supabase (5s timeout)
+    - [x] Detailed health check response
+    - [x] Returns 503 if checks fail
 
 ---
 
@@ -348,6 +346,20 @@ Review Status: In Progress
 - ✅ Added origin verification to 4 expensive endpoints (Moxfield, EDHREC, EDHTop16, MTGTop8)
 - ✅ Created `src/lib/schemas.ts` - Lightweight runtime type validation (4 parsers)
 - ✅ Card name validation working with character whitelist + length limits
+
+### Completed (Phase 3: Quality & Observability)
+- ✅ Created `src/lib/logger.ts` - Structured logging utility with debug/info/warn/error methods
+- ✅ Created `src/components/ErrorBoundary.tsx` - React error boundary with graceful error display
+- ✅ Created `api/_lib/constants.ts` - Externalized hardcoded values to config
+- ✅ Created `API.md` - Comprehensive API documentation (6 endpoints, rate limits, examples)
+- ✅ Enhanced `api/health.ts` - Health check with env validation + Supabase connectivity test
+- ✅ Enhanced `api/results/mtgtop8.ts` - Date parsing validation + HTML structure checks
+
+### Post-Implementation Fixes
+- ✅ Fixed TypeScript configuration errors:
+  - `ErrorBoundary.tsx`: Type-only ReactNode import, switched to import.meta.env.DEV
+  - `logger.ts`: Replaced enum with type union (erasableSyntaxOnly compatible), used import.meta.env.DEV
+  - Build now passes with 0 TypeScript errors
 
 ### In Progress
 <!-- Add items currently being worked on -->
