@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { validateString } from "../../src/lib/validation";
 import { env } from "./_lib/env";
 import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "./_lib/rateLimit";
+import { setCorsHeaders } from "./_lib/cors";
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -31,6 +32,8 @@ function pickImageUris(card: ScryfallCard) {
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
+  setCorsHeaders(res);
+
   if (req.method !== "GET") {
     return res.status(405).json({ error: "Method not allowed" });
   }
