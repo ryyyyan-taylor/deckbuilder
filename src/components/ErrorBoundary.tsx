@@ -1,4 +1,5 @@
-import { Component, ReactNode } from 'react'
+import type { ReactNode } from 'react'
+import { Component } from 'react'
 import { logger } from '../lib/logger'
 
 interface Props {
@@ -41,7 +42,7 @@ export class ErrorBoundary extends Component<Props, State> {
             <p className="text-gray-400 mb-6">
               An unexpected error occurred. Please try refreshing the page.
             </p>
-            {process.env.NODE_ENV === 'development' && this.state.error && (
+            {import.meta.env.DEV && this.state.error && (
               <div className="bg-red-900/20 border border-red-700 rounded p-4 mb-6 text-left">
                 <p className="text-sm text-red-300 font-mono break-words">
                   {this.state.error.message}

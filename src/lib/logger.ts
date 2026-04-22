@@ -6,12 +6,7 @@ export interface LogContext {
   [key: string]: unknown;
 }
 
-export enum LogLevel {
-  DEBUG = "DEBUG",
-  INFO = "INFO",
-  WARN = "WARN",
-  ERROR = "ERROR",
-}
+type LogLevel = "DEBUG" | "INFO" | "WARN" | "ERROR";
 
 /**
  * Format and log a message with context
@@ -32,8 +27,8 @@ export const logger = {
    * Log debug message (development only)
    */
   debug(message: string, context?: LogContext): void {
-    if (process.env.NODE_ENV === "development") {
-      console.debug(formatLog(LogLevel.DEBUG, message, context));
+    if (import.meta.env.DEV) {
+      console.debug(formatLog("DEBUG", message, context));
     }
   },
 
@@ -41,21 +36,21 @@ export const logger = {
    * Log info message
    */
   info(message: string, context?: LogContext): void {
-    console.log(formatLog(LogLevel.INFO, message, context));
+    console.log(formatLog("INFO", message, context));
   },
 
   /**
    * Log warning message
    */
   warn(message: string, context?: LogContext): void {
-    console.warn(formatLog(LogLevel.WARN, message, context));
+    console.warn(formatLog("WARN", message, context));
   },
 
   /**
    * Log error message
    */
   error(message: string, context?: LogContext): void {
-    console.error(formatLog(LogLevel.ERROR, message, context));
+    console.error(formatLog("ERROR", message, context));
   },
 };
 
