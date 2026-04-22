@@ -1,8 +1,8 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import { validateCommanderName, ValidationError } from "../../src/lib/validation";
-import { env } from "../../src/lib/env";
-import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../../src/lib/rateLimit";
+import { validateCommanderName } from "../../src/lib/validation";
+import { env } from "./_lib/env";
+import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "./_lib/rateLimit";
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -149,9 +149,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
     return res.status(200).json(result);
   } catch (err) {
-    if (err instanceof ValidationError) {
-      console.warn("[API] validation error", { error: err.message });
-      return res.status(400).json({ error: err.message });
+    if (err && typeof err === 'object' && 'code' in err && err.code === 'VALIDATION_ERROR') {
+      const errMsg = 'message' in err ? String(err.message) : 'Validation error';
+      console.warn("[API] validation error", { error: errMsg });
+      return res.status(400).json({ error: errMsg });
     }
     const errorMsg = err instanceof Error ? err.message : "Unknown error";
     console.error("[API] edhtop16 error", { error: errorMsg });

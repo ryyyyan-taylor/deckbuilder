@@ -3,11 +3,14 @@
  * All user inputs validated before processing to prevent injection/DoS.
  */
 
-export class ValidationError extends Error {
-  constructor(message: string, public code = 'VALIDATION_ERROR') {
-    super(message);
-    this.name = 'ValidationError';
-  }
+export interface ValidationError {
+  message: string;
+  code: string;
+  name: string;
+}
+
+export function createValidationError(message: string, code = 'VALIDATION_ERROR'): ValidationError {
+  return { message, code, name: 'ValidationError' };
 }
 
 /**
@@ -23,13 +26,13 @@ export function validateString(
   pattern?: RegExp
 ): string {
   if (!value || typeof value !== 'string') {
-    throw new ValidationError('Value must be a non-empty string');
+    throw createValidationError('Value must be a non-empty string');
   }
   if (value.length > maxLength) {
-    throw new ValidationError(`String exceeds maximum length of ${maxLength}`);
+    throw createValidationError(`String exceeds maximum length of ${maxLength}`);
   }
   if (pattern && !pattern.test(value)) {
-    throw new ValidationError(`String does not match required format`);
+    throw createValidationError(`String does not match required format`);
   }
   return value.trim();
 }
@@ -42,12 +45,12 @@ export function validateString(
  */
 export function validateMoxfieldUrl(url: unknown): string {
   if (!url || typeof url !== 'string') {
-    throw new ValidationError('URL must be a non-empty string');
+    throw createValidationError('URL must be a non-empty string');
   }
 
   const trimmed = url.trim();
   if (trimmed.length > 500) {
-    throw new ValidationError('URL exceeds maximum length');
+    throw createValidationError('URL exceeds maximum length');
   }
 
   // Strict Moxfield URL format: https://www.moxfield.com/decks/{deckId}
@@ -55,14 +58,14 @@ export function validateMoxfieldUrl(url: unknown): string {
     /^https?:\/\/(www\.)?moxfield\.com\/decks\/([a-zA-Z0-9_-]+)$/i
   );
   if (!match) {
-    throw new ValidationError(
+    throw createValidationError(
       'Invalid Moxfield URL. Expected format: https://www.moxfield.com/decks/{deckId}'
     );
   }
 
   const deckId = match[2];
   if (deckId.length > 50) {
-    throw new ValidationError('Deck ID is invalid');
+    throw createValidationError('Deck ID is invalid');
   }
 
   return deckId;
@@ -77,8 +80,8 @@ export function validateMoxfieldUrl(url: unknown): string {
 export function validateCommanderName(name: unknown): string {
   const validated = validateString(name, 100);
   // Allow letters, spaces, hyphens, apostrophes, commas, slashes (for partner commanders)
-  if (!/^[a-zA-Z\s\-,\'\/]+$/.test(validated)) {
-    throw new ValidationError(
+  if (!/^[a-zA-Z\s,\-'()/]+$/.test(validated)) {
+    throw createValidationError(
       'Commander name contains invalid characters. Only letters, spaces, hyphens, commas, apostrophes, and slashes allowed.'
     );
   }
@@ -94,7 +97,7 @@ export function validateCommanderName(name: unknown): string {
 export function validateQuery(query: unknown): string {
   const validated = validateString(query, 100);
   if (validated.length < 2) {
-    throw new ValidationError('Query must be at least 2 characters');
+    throw createValidationError('Query must be at least 2 characters');
   }
   return validated;
 }
@@ -111,10 +114,10 @@ export function validateEnum<T extends string>(
   allowedValues: readonly T[]
 ): T {
   if (!value || typeof value !== 'string') {
-    throw new ValidationError('Value must be a non-empty string');
+    throw createValidationError('Value must be a non-empty string');
   }
   if (!allowedValues.includes(value as T)) {
-    throw new ValidationError(
+    throw createValidationError(
       `Invalid value. Must be one of: ${allowedValues.join(', ')}`
     );
   }
@@ -128,7 +131,7 @@ export function validateEnum<T extends string>(
  */
 export function validateCardNames(names: unknown[]): string[] {
   if (!Array.isArray(names)) {
-    throw new ValidationError('Card names must be an array');
+    throw createValidationError('Card names must be an array');
   }
 
   return names
@@ -136,6 +139,6 @@ export function validateCardNames(names: unknown[]): string[] {
     .map((n) => (n as string).trim())
     .filter((n) => {
       // Allow letters, spaces, hyphens, commas, apostrophes, forward slashes, parentheses
-      return /^[a-zA-Z\s\-,\'\/()]+$/.test(n) && n.length <= 255;
+      return /^[a-zA-Z\s,\-'()/]+$/.test(n) && n.length <= 255;
     });
 }
