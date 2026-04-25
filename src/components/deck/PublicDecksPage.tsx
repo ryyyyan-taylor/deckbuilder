@@ -114,7 +114,10 @@ export function PublicDecksPage() {
   useEffect(() => {
     offsetRef.current = 0
     fetchPage(0, false)
-  }, [selectedGame, fetchPage])
+  // fetchPage is defined inline and recreated every render — adding it would cause
+  // an infinite loop. selectedGame is the only meaningful dependency here.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [selectedGame])
 
   useEffect(() => {
     const el = sentinelRef.current
@@ -129,7 +132,9 @@ export function PublicDecksPage() {
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [hasMore, loadingMore, loading, fetchPage])
+  // fetchPage is defined inline — omitted intentionally to avoid infinite loop.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hasMore, loadingMore, loading])
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
