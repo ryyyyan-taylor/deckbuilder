@@ -147,3 +147,37 @@ export function validateGame(input: unknown): 'mtg' | 'swu' {
   if (input === 'swu') return 'swu';
   return 'mtg'; // default to MTG
 }
+
+/**
+ * Validate a SWUDB deck URL
+ * @param url - The SWUDB URL to validate
+ * @returns Extracted deck ID
+ * @throws ValidationError if invalid
+ */
+export function validateSwudbUrl(url: unknown): string {
+  if (!url || typeof url !== 'string') {
+    throw createValidationError('URL must be a non-empty string');
+  }
+
+  const trimmed = url.trim();
+  if (trimmed.length > 500) {
+    throw createValidationError('URL exceeds maximum length');
+  }
+
+  // SWUDB URL format: https://swudb.com/deck/{deckId} or https://www.swudb.com/deck/{deckId}
+  const match = trimmed.match(
+    /^https?:\/\/(www\.)?swudb\.com\/deck\/([a-zA-Z0-9_-]+)$/i
+  );
+  if (!match) {
+    throw createValidationError(
+      'Invalid SWUDB URL. Expected format: https://swudb.com/deck/{deckId}'
+    );
+  }
+
+  const deckId = match[2];
+  if (deckId.length > 100) {
+    throw createValidationError('Deck ID is invalid');
+  }
+
+  return deckId;
+}

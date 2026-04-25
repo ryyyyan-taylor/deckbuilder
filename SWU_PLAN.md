@@ -10,12 +10,12 @@
 | 4 | Game-parameterized card API | ✅ DONE | 2026-04-24 |
 | 5 | DeckForm + editor wiring | ✅ DONE | 2026-04-24 |
 | 6 | Dashboard + public page toggle | ✅ DONE | 2026-04-24 |
-| 7 | SWUDB deck import | ⏳ TODO | — |
+| 7 | SWUDB deck import | ✅ DONE | 2026-04-24 |
 | 8 | Stats panel (cost curve + aspect pips) | ⏳ TODO | — |
 | 9 | Sandbox + compare gating | ⏳ TODO | — |
 | 10 | Docs + QA | ⏳ TODO | — |
 
-**Current state:** 6/10 phases complete. 8,071 SWU cards seeded. MTG flows fully backward-compatible. Game toggle on `/decks`, `/` (public), and utilities pages. Ready for SWUDB deck import.
+**Current state:** 7/10 phases complete. 8,071 SWU cards seeded. SWUDB deck import functional (fetches from swudb.com/deck/{id}.json). EditDeckPage and SandboxPage both game-aware. MTG flows fully backward-compatible. Ready for stats panel and sandbox/compare gating.
 
 ## Context
 

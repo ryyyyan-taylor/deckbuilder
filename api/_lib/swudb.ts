@@ -170,3 +170,40 @@ export async function fetchSwuapiCardsByName(names: string[]): Promise<SwuapiCar
   }
   return results
 }
+
+// SWUDB deck fetch — tries JSON export endpoint (swudb.com/deck/{id}.json)
+export interface SwudbDeckExport {
+  name: string
+  description?: string
+  format?: string
+  cards: Array<{
+    uuid: string
+    name: string
+    quantity: number
+  }>
+}
+
+export async function fetchSwudbDeck(deckId: string): Promise<SwudbDeckExport | null> {
+  // Try the JSON export endpoint: https://swudb.com/deck/{deckId}.json
+  const url = `https://swudb.com/deck/${deckId}.json`
+  const controller = new AbortController()
+  const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
+
+  try {
+    const res = await fetch(url, {
+      signal: controller.signal,
+      headers: { Accept: 'application/json' },
+    })
+    if (res.status === 404) return null
+    if (!res.ok) {
+      console.warn(`[SWUDB] deck fetch failed for ${deckId}: ${res.status}`)
+      return null
+    }
+    return await res.json() as SwudbDeckExport
+  } catch (err) {
+    console.warn(`[SWUDB] deck fetch error for ${deckId}:`, err instanceof Error ? err.message : 'unknown')
+    return null
+  } finally {
+    clearTimeout(timeout)
+  }
+}

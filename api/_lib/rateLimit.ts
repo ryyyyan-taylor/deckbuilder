@@ -88,6 +88,7 @@ if (typeof setInterval !== 'undefined') {
 export const RATE_LIMITS = {
   // Expensive external API calls
   IMPORT_MOXFIELD: { limit: 20, window: 60 * 1000 }, // 20 per minute
+  IMPORT_SWUDB: { limit: 20, window: 60 * 1000 }, // 20 per minute
   SUGGESTIONS_EDHREC: { limit: 30, window: 60 * 1000 }, // 30 per minute
   RESULTS_TOURNAMENT: { limit: 30, window: 60 * 1000 }, // 30 per minute
 

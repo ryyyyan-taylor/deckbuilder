@@ -337,7 +337,8 @@ export function EditDeckPage() {
     setImportLoading(true)
     setImportError(null)
     try {
-      const res = await fetch('/api/import/moxfield', {
+      const endpoint = deck!.game === 'swu' ? '/api/import/swudb' : '/api/import/moxfield'
+      const res = await fetch(endpoint, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ url: importUrl.trim() }),
@@ -1089,19 +1090,27 @@ export function EditDeckPage() {
           />
         )}
 
-        {/* Import from Moxfield modal */}
+        {/* Import modal */}
         {showImportModal && (
           <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
             <div className="bg-gray-800 border border-gray-700 rounded-lg p-6 w-full max-w-md">
-              <h2 className="text-lg font-semibold mb-4">Import from Moxfield</h2>
+              <h2 className="text-lg font-semibold mb-4">
+                {deck!.game === 'swu' ? 'Import from SWUDB' : 'Import from Moxfield'}
+              </h2>
               <p className="text-gray-400 text-sm mb-3">
-                Paste a Moxfield deck URL to import its cards.
+                {deck!.game === 'swu'
+                  ? 'Paste a SWUDB deck URL to import its cards.'
+                  : 'Paste a Moxfield deck URL to import its cards.'}
               </p>
               <input
                 type="text"
                 value={importUrl}
                 onChange={(e) => setImportUrl(e.target.value)}
-                placeholder="https://www.moxfield.com/decks/..."
+                placeholder={
+                  deck!.game === 'swu'
+                    ? 'https://swudb.com/deck/...'
+                    : 'https://www.moxfield.com/decks/...'
+                }
                 className="w-full px-3 py-2 bg-gray-700 border border-gray-600 rounded text-sm focus:outline-none focus:border-blue-500"
                 onKeyDown={(e) => {
                   if (e.key === 'Enter' && !importLoading) handleImport()
