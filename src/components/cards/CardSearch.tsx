@@ -33,8 +33,10 @@ export function CardSearch({ onAdd, sections, activeSection, game, onHoverCard }
     try {
       const res = await fetch(`/api/cards/search?q=${encodeURIComponent(q)}&game=${game}`)
       if (!res.ok) {
-        const err = await res.json()
-        throw new Error(err.error ?? 'Search failed')
+        const text = await res.text()
+        let msg = 'Search failed'
+        try { msg = (JSON.parse(text) as { error?: string }).error ?? msg } catch { /* plain-text error */ }
+        throw new Error(msg)
       }
       const json = await res.json()
       const all: Card[] = json.data ?? []
