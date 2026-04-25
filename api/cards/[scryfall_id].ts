@@ -1,35 +1,13 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import { validateString } from "../../src/lib/validation";
-import { env } from "./_lib/env";
-import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "./_lib/rateLimit";
-import { setCorsHeaders } from "./_lib/cors";
+import { validateString, validateGame } from "../../src/lib/validation";
+import { env } from "../_lib/env";
+import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../_lib/rateLimit";
+import { setCorsHeaders } from "../_lib/cors";
+import { fetchScryfallById, scryfallToRow } from "../_lib/scryfall";
+import { fetchSwuapiCardById } from "../_lib/swudb";
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-
-interface ScryfallCard {
-  id: string;
-  name: string;
-  mana_cost?: string;
-  cmc?: number;
-  type_line?: string;
-  colors?: string[];
-  color_identity?: string[];
-  set: string;
-  image_uris?: Record<string, string>;
-  card_faces?: Array<{ image_uris?: Record<string, string> }>;
-}
-
-function pickImageUris(card: ScryfallCard) {
-  const uris = card.image_uris ?? card.card_faces?.[0]?.image_uris;
-  if (!uris) return null;
-  return {
-    small: uris.small,
-    normal: uris.normal,
-    large: uris.large,
-    png: uris.png,
-  };
-}
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
   setCorsHeaders(res);
@@ -52,56 +30,72 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   try {
     const { scryfall_id } = req.query;
+    const gameParam = req.query.game;
     const cardId = validateString(scryfall_id, 50, /^[a-z0-9-]+$/i);
+    const game = validateGame(gameParam);
 
-    // 1. Check Supabase cache
+    // 1. Check Supabase cache (filtered by game)
     const { data: cached, error: cacheError } = await supabase
       .from("cards")
       .select("*")
       .eq("scryfall_id", cardId)
+      .eq("game", game)
       .single();
 
     if (!cacheError && cached) {
       return res.status(200).json({ data: cached, source: "cache" });
     }
 
-    // 2. Cache miss — fetch from Scryfall
-    const scryfallRes = await fetch(
-      `https://api.scryfall.com/cards/${encodeURIComponent(cardId)}`,
-      { signal: AbortSignal.timeout(10000) }
-    );
+    // 2. Cache miss — fetch from appropriate source
+    let card: any = null;
+    let source = "unknown";
 
-    if (!scryfallRes.ok) {
-      console.error("[API] scryfall card fetch failed", { cardId, status: scryfallRes.status });
-      return res.status(scryfallRes.status === 404 ? 404 : 502).json({ error: "Card not found" });
+    if (game === "swu") {
+      const swuCard = await fetchSwuapiCardById(cardId);
+      if (swuCard) {
+        card = {
+          game: "swu",
+          scryfall_id: swuCard.uuid,
+          name: swuCard.subtitle ? `${swuCard.name}, ${swuCard.subtitle}` : swuCard.name,
+          swu_type: swuCard.type,
+          aspects: swuCard.aspects ?? [],
+          cost: swuCard.cost ?? null,
+          arena: swuCard.arena ?? null,
+          hp: swuCard.hp ?? null,
+          power: swuCard.power ?? null,
+          set_code: swuCard.set_code,
+          type_line: swuCard.type,
+          image_uris: {
+            normal: swuCard.front_image_url,
+            ...(swuCard.back_image_url ? { back: swuCard.back_image_url } : {}),
+          },
+        };
+        source = "swuapi";
+      }
+    } else {
+      const scryfallCard = await fetchScryfallById(cardId);
+      if (scryfallCard) {
+        card = scryfallToRow(scryfallCard);
+        source = "scryfall";
+      }
     }
 
-    const card: ScryfallCard = await scryfallRes.json();
+    if (!card) {
+      return res.status(404).json({ error: "Card not found" });
+    }
 
     // 3. Write to cache
-    const row = {
-      scryfall_id: card.id,
-      name: card.name,
-      mana_cost: card.mana_cost ?? null,
-      cmc: card.cmc ?? null,
-      type_line: card.type_line ?? null,
-      colors: card.colors ?? [],
-      color_identity: card.color_identity ?? [],
-      set_code: card.set,
-      image_uris: pickImageUris(card),
-    };
-
     const { data: inserted, error: insertError } = await supabase
       .from("cards")
-      .upsert(row, { onConflict: "scryfall_id" })
+      .upsert(card, { onConflict: "scryfall_id,game" })
       .select()
       .single();
 
     if (insertError) {
-      console.error("[API] card cache upsert failed", { cardId, error: insertError.message });
+      console.error("[API] card cache upsert failed", { cardId, game, error: insertError.message });
     }
 
-    return res.status(200).json({ data: inserted ?? row, source: "scryfall" });
+    return res.status(200).json({ data: inserted ?? card, source });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === 'VALIDATION_ERROR') {
       const errMsg = 'message' in err ? String(err.message) : 'Validation error';

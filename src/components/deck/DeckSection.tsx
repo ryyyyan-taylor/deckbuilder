@@ -1,7 +1,8 @@
 import { useState } from 'react'
 import type { DeckCard, Card } from '../../hooks/useDeck'
+import type { Game } from '../../lib/games'
 import { DeckCardItem } from './DeckCardItem'
-import { TYPE_ORDER, getCardType, isMdfcLandBack, packColumns } from '../../lib/cards'
+import { getTypeOrder, getCardType, isMdfcLandBack, packColumns } from '../../lib/cards'
 import { useMaxColumns } from '../../hooks/useMaxColumns'
 
 export type SortBy = 'name' | 'cmc'
@@ -10,6 +11,7 @@ export type ViewMode = 'stacks' | 'grid'
 interface DeckSectionProps {
   section: string
   cards: DeckCard[]
+  game: Game
   onQuantityChange?: (deckCardId: string, quantity: number) => void
   onRemove?: (deckCardId: string) => void
   onHoverCard?: (card: Card | null) => void
@@ -36,13 +38,14 @@ function sortCards(cards: DeckCard[], sortBy: SortBy): DeckCard[] {
   })
 }
 
-export function DeckSection({ section, cards, onQuantityChange, onRemove, onHoverCard, sortBy, viewMode = 'stacks', sections, onSendToSection, onAddToSection, onMobileTap, onRequestVersionPicker, readOnly }: DeckSectionProps) {
+export function DeckSection({ section, cards, game, onQuantityChange, onRemove, onHoverCard, sortBy, viewMode = 'stacks', sections, onSendToSection, onAddToSection, onMobileTap, onRequestVersionPicker, readOnly }: DeckSectionProps) {
   const [activeCardId, setActiveCardId] = useState<string | null>(null)
   const { ref: containerRef, maxColumns } = useMaxColumns()
   const totalCards = cards.reduce((sum, dc) => sum + dc.quantity, 0)
   const isCommander = section === 'Commander'
+  const isLeaderBase = section === 'Leader/Base'
 
-  if (isCommander) {
+  if (isCommander || isLeaderBase) {
     const sorted = sortCards(cards, 'name')
     return (
       <div className="rounded border p-4 border-gray-700 bg-gray-800/50">
@@ -86,13 +89,14 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
   // Group cards by type
   const grouped = new Map<string, DeckCard[]>()
   for (const dc of cards) {
-    const type = getCardType(dc.card?.type_line ?? null)
+    const type = getCardType(dc.card ?? {}, game)
     if (!grouped.has(type)) grouped.set(type, [])
     grouped.get(type)!.push(dc)
   }
 
-  // Sort groups by TYPE_ORDER, sort cards within each group
-  const sortedGroups = TYPE_ORDER
+  // Sort groups by game-specific type order, sort cards within each group
+  const typeOrder = getTypeOrder(game)
+  const sortedGroups = typeOrder
     .filter((t) => grouped.has(t))
     .map((t) => ({ type: t, cards: sortCards(grouped.get(t)!, sortBy) }))
 
@@ -164,7 +168,7 @@ export function DeckSection({ section, cards, onQuantityChange, onRemove, onHove
         </p>
       ) : (
         <div ref={containerRef} className="flex flex-wrap justify-center gap-10">
-          {packColumns(sortedGroups, maxColumns).map((column, colIdx) => (
+          {packColumns(sortedGroups, maxColumns, typeOrder).map((column, colIdx) => (
             <div key={colIdx} className="w-[180px] min-w-0 flex flex-col gap-4">
               {column.map(({ type, cards: typeCards }) => {
                 const typeCount = typeCards.reduce((s, dc) => s + dc.quantity, 0)

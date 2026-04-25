@@ -2,6 +2,7 @@ import { useEffect, useRef, useReducer } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { scryfallArtCropUrl } from '../../lib/cards'
+import { GameToggle, useSelectedGame } from '../GameToggle'
 
 const PAGE_SIZE = 20
 
@@ -78,6 +79,7 @@ export function PublicDecksPage() {
   const { decks, loading, loadingMore, hasMore, error } = state
   const sentinelRef = useRef<HTMLDivElement>(null)
   const offsetRef = useRef(0)
+  const selectedGame = useSelectedGame()
 
   useEffect(() => {
     document.title = 'Public Decks — Deck Builder'
@@ -90,6 +92,7 @@ export function PublicDecksPage() {
       .from('decks')
       .select('id, name, format, updated_at, display_card:cards!display_card_id(scryfall_id, image_uris)')
       .eq('is_public', true)
+      .eq('game', selectedGame)
       .order('updated_at', { ascending: false })
       .range(offset, offset + PAGE_SIZE - 1)
 
@@ -110,7 +113,7 @@ export function PublicDecksPage() {
   useEffect(() => {
     offsetRef.current = 0
     fetchPage(0, false)
-  }, [])
+  }, [selectedGame])
 
   useEffect(() => {
     const el = sentinelRef.current
@@ -129,7 +132,10 @@ export function PublicDecksPage() {
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
-      <h1 className="text-xl font-semibold mb-6">Public Decks</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-semibold">Public Decks</h1>
+        <GameToggle />
+      </div>
 
       {error && (
         <div className="bg-red-900/50 border border-red-700 text-red-200 px-4 py-2 rounded text-sm mb-4">
@@ -140,7 +146,7 @@ export function PublicDecksPage() {
       {loading ? (
         <p className="text-gray-400">Loading...</p>
       ) : decks.length === 0 ? (
-        <p className="text-gray-400">No public decks yet.</p>
+        <p className="text-gray-400">No public {selectedGame === 'mtg' ? 'MTG' : 'SWU'} decks yet.</p>
       ) : (
         <>
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -1,14 +1,16 @@
 import { useState, useRef, useEffect } from 'react'
 import type { Card } from '../../hooks/useDeck'
+import type { Game } from '../../lib/games'
 
 interface CardSearchProps {
   onAdd: (card: Card, section: string) => void
   sections: string[]
   activeSection: string
+  game: Game
   onHoverCard?: (card: Card | null) => void
 }
 
-export function CardSearch({ onAdd, sections, activeSection, onHoverCard }: CardSearchProps) {
+export function CardSearch({ onAdd, sections, activeSection, game, onHoverCard }: CardSearchProps) {
   const [query, setQuery] = useState('')
   const [results, setResults] = useState<Card[]>([])
   const [loading, setLoading] = useState(false)
@@ -29,7 +31,7 @@ export function CardSearch({ onAdd, sections, activeSection, onHoverCard }: Card
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch(`/api/cards/search?q=${encodeURIComponent(q)}`)
+      const res = await fetch(`/api/cards/search?q=${encodeURIComponent(q)}&game=${game}`)
       if (!res.ok) {
         const err = await res.json()
         throw new Error(err.error ?? 'Search failed')

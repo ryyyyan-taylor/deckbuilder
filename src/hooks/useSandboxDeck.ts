@@ -1,33 +1,42 @@
 import { useState, useRef } from 'react'
 import { supabase } from '../lib/supabase'
 import type { Card, Deck, DeckCard, DeckInput } from './useDeck'
+import type { Game } from '../lib/games'
+import { getDefaultSections } from '../lib/games'
 
 const STORAGE_DECK = 'sandbox_deck'
 const STORAGE_CARDS = 'sandbox_cards'
 export const SANDBOX_ID = 'sandbox'
 
-const DEFAULT_DECK: Deck = {
-  id: SANDBOX_ID,
-  user_id: '',
-  name: 'Sandbox',
-  format: null,
-  description: null,
-  is_public: false,
-  sections: ['Mainboard', 'Stats', 'Test'],
-  created_at: new Date().toISOString(),
-  updated_at: new Date().toISOString(),
-  display_card_id: null,
+function createDefaultDeck(game: Game): Deck {
+  return {
+    id: SANDBOX_ID,
+    user_id: '',
+    name: 'Sandbox',
+    format: null,
+    description: null,
+    is_public: false,
+    game,
+    sections: getDefaultSections(game, 'Sandbox'),
+    created_at: new Date().toISOString(),
+    updated_at: new Date().toISOString(),
+    display_card_id: null,
+  }
 }
 
-function loadFromStorage(): { deck: Deck; cards: DeckCard[] } {
+function loadFromStorage(defaultGame: Game): { deck: Deck; cards: DeckCard[] } {
   try {
     const deckRaw = sessionStorage.getItem(STORAGE_DECK)
     const cardsRaw = sessionStorage.getItem(STORAGE_CARDS)
     if (deckRaw && cardsRaw) {
-      return { deck: JSON.parse(deckRaw), cards: JSON.parse(cardsRaw) }
+      const storedDeck = JSON.parse(deckRaw) as Deck
+      // If stored deck doesn't have a game field or game doesn't match, return defaults
+      if (storedDeck.game === defaultGame) {
+        return { deck: storedDeck, cards: JSON.parse(cardsRaw) }
+      }
     }
   } catch (_e) { /* ignore parse errors, return defaults */ }
-  return { deck: DEFAULT_DECK, cards: [] }
+  return { deck: createDefaultDeck(defaultGame), cards: [] }
 }
 
 function saveToStorage(deck: Deck, cards: DeckCard[]) {
@@ -37,8 +46,8 @@ function saveToStorage(deck: Deck, cards: DeckCard[]) {
   } catch (_e) { /* ignore storage errors */ }
 }
 
-export function useSandboxDeck() {
-  const { deck: initialDeck, cards: initialCards } = loadFromStorage()
+export function useSandboxDeck(game: Game = 'mtg') {
+  const { deck: initialDeck, cards: initialCards } = loadFromStorage(game)
 
   const [deck, setDeck] = useState<Deck>(initialDeck)
   const [deckCards, setDeckCards] = useState<DeckCard[]>(initialCards)
@@ -67,7 +76,7 @@ export function useSandboxDeck() {
       sessionStorage.removeItem(STORAGE_DECK)
       sessionStorage.removeItem(STORAGE_CARDS)
     } catch (_e) { /* ignore storage errors */ }
-    commitDeck(DEFAULT_DECK)
+    commitDeck(createDefaultDeck(game))
     commitCards([])
   }
 

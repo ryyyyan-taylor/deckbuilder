@@ -1,8 +1,10 @@
 import { useState, useEffect, useRef, useCallback, useReducer } from 'react'
 import type { DeckCard, Card } from '../../hooks/useDeck'
+import type { Game } from '../../lib/games'
 
 interface TestPanelProps {
   deckCards: DeckCard[]
+  game: Game
   onHoverCard?: (card: Card | null) => void
 }
 

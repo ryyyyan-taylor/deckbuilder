@@ -1,27 +1,19 @@
 import { useState } from 'react'
 import type { Deck, DeckInput } from '../../hooks/useDeck'
-
-const FORMATS = [
-  'Standard', 'Modern', 'Pioneer', 'Legacy', 'Vintage',
-  'Commander', 'cEDH', 'Duel Commander', 'Pauper', 'Draft', 'Other',
-]
-
-const COMMANDER_FORMATS = ['Commander', 'cEDH', 'Duel Commander']
-
-function getDefaultSections(format: string): string[] {
-  if (COMMANDER_FORMATS.includes(format)) return ['Commander', 'Mainboard', 'Sideboard']
-  return ['Mainboard', 'Sideboard']
-}
+import type { Game } from '../../lib/games'
+import { getFormats, getDefaultSections } from '../../lib/games'
 
 interface DeckFormProps {
   deck?: Deck
+  game?: Game
   onSubmit: (data: DeckInput) => Promise<void>
   onCancel?: () => void
 }
 
-export function DeckForm({ deck, onSubmit, onCancel }: DeckFormProps) {
+export function DeckForm({ deck, game = 'mtg', onSubmit, onCancel }: DeckFormProps) {
+  const formats = getFormats(game)
   const [name, setName] = useState(deck?.name ?? '')
-  const [format, setFormat] = useState(deck?.format ?? 'Standard')
+  const [format, setFormat] = useState(deck?.format ?? formats[0])
   const [description, setDescription] = useState(deck?.description ?? '')
   const [isPublic, setIsPublic] = useState(deck?.is_public ?? false)
   const [error, setError] = useState<string | null>(null)
@@ -34,7 +26,7 @@ export function DeckForm({ deck, onSubmit, onCancel }: DeckFormProps) {
     try {
       await onSubmit({
         name, format, description, is_public: isPublic,
-        ...(!deck ? { sections: getDefaultSections(format) } : {}),
+        ...(!deck ? { game, sections: getDefaultSections(game, format) } : {}),
       })
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Something went wrong')
@@ -69,7 +61,7 @@ export function DeckForm({ deck, onSubmit, onCancel }: DeckFormProps) {
           onChange={(e) => setFormat(e.target.value)}
           className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded focus:outline-none focus:border-blue-500"
         >
-          {FORMATS.map((f) => (
+          {formats.map((f) => (
             <option key={f} value={f}>{f}</option>
           ))}
         </select>

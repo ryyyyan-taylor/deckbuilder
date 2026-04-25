@@ -142,3 +142,8 @@ export function validateCardNames(names: unknown[]): string[] {
       return /^[a-zA-Z\s,\-'()/]+$/.test(n) && n.length <= 255;
     });
 }
+
+export function validateGame(input: unknown): 'mtg' | 'swu' {
+  if (input === 'swu') return 'swu';
+  return 'mtg'; // default to MTG
+}

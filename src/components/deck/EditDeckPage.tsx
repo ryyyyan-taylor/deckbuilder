@@ -23,10 +23,10 @@ import type { ToastItem } from '../Toast'
 import { useSideboardGuide } from '../../hooks/useSideboardGuide'
 import { scryfallArtCropUrl } from '../../lib/cards'
 import { SideboardGuidePanel } from './SideboardGuidePanel'
+import { getProtectedSections } from '../../lib/games'
 
 const STATS_SECTION = 'Stats'
 const TEST_SECTION = 'Test'
-const PROTECTED_SECTIONS = ['Mainboard', STATS_SECTION, TEST_SECTION]
 
 function SortablePill({ id, children }: { id: string; children: React.ReactNode }) {
   const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({ id })
@@ -101,10 +101,7 @@ export function EditDeckPage() {
 
   const sections = deck?.sections ?? ['Mainboard', STATS_SECTION, TEST_SECTION]
   const cardSections = sections.filter((s) => s !== STATS_SECTION && s !== TEST_SECTION)
-  const commanderFormats = ['Commander', 'cEDH', 'Duel Commander']
-  const protectedSections = commanderFormats.includes(deck?.format ?? '')
-    ? [...PROTECTED_SECTIONS, 'Commander']
-    : PROTECTED_SECTIONS
+  const protectedSections = getProtectedSections(deck?.game ?? 'mtg', deck?.format ?? '')
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } })
@@ -596,12 +593,12 @@ export function EditDeckPage() {
   const commanderName = commanderCards.length > 0
     ? commanderCards.map((dc) => dc.card?.name).filter(Boolean).join(' / ')
     : null
-  const commanderColorIdentity = commanderFormats.includes(deck?.format ?? '')
+  const commanderColorIdentity = deck?.game === 'mtg' && ['Commander', 'cEDH', 'Duel Commander'].includes(deck?.format ?? '')
     ? [...new Set(commanderCards.flatMap((dc) => dc.card?.color_identity ?? []))]
     : undefined
-  const isCommander = deck?.format === 'Commander'
-  const isCedh = deck?.format === 'cEDH'
-  const isDuelCommander = deck?.format === 'Duel Commander'
+  const isCommander = deck?.game === 'mtg' && deck?.format === 'Commander'
+  const isCedh = deck?.game === 'mtg' && deck?.format === 'cEDH'
+  const isDuelCommander = deck?.game === 'mtg' && deck?.format === 'Duel Commander'
   const showSuggestionsButton = isCommander && !!commanderName
   const showResultsButton = (isCedh || isDuelCommander) && !!commanderName
   const resultsSource = isDuelCommander ? 'mtgtop8' as const : 'edhtop16' as const
@@ -854,6 +851,7 @@ export function EditDeckPage() {
           <div className="mb-6 p-4 bg-gray-800 border border-gray-700 rounded">
             <DeckForm
               deck={deck!}
+              game={deck?.game ?? 'mtg'}
               onSubmit={handleUpdateDeck}
               onCancel={() => setShowEditForm(false)}
             />
@@ -894,6 +892,7 @@ export function EditDeckPage() {
               onAdd={handleAddCard}
               sections={cardSections}
               activeSection={cardSections.includes('Mainboard') ? 'Mainboard' : cardSections[0]}
+              game={deck?.game ?? 'mtg'}
               onHoverCard={setPreviewCard}
             />
           </div>
@@ -946,9 +945,9 @@ export function EditDeckPage() {
             <div className="space-y-4">
               {sections.map((s) =>
                 s === STATS_SECTION ? (
-                  <StatsPanel key={s} deckCards={deckCards} commanderColorIdentity={commanderColorIdentity} />
+                  <StatsPanel key={s} deckCards={deckCards} game={deck?.game ?? 'mtg'} commanderColorIdentity={commanderColorIdentity} />
                 ) : s === TEST_SECTION ? (
-                  <TestPanel key={s} deckCards={deckCards} onHoverCard={setPreviewCard} />
+                  <TestPanel key={s} deckCards={deckCards} game={deck?.game ?? 'mtg'} onHoverCard={setPreviewCard} />
                 ) : s === 'Sideboard' && showGuide ? (
                   <div key={s} className="rounded border border-gray-700 bg-gray-800/50 p-4">
                     <div className="flex items-center justify-between mb-4">
@@ -980,6 +979,7 @@ export function EditDeckPage() {
                     <DeckSection
                       section={s}
                       cards={cardsBySection[s]}
+                      game={deck?.game ?? 'mtg'}
                       onQuantityChange={handleQuantityChange}
                       onRemove={handleRemove}
                       onHoverCard={setPreviewCard}
@@ -1003,6 +1003,7 @@ export function EditDeckPage() {
                     key={s}
                     section={s}
                     cards={cardsBySection[s]}
+                    game={deck!.game}
                     onQuantityChange={handleQuantityChange}
                     onRemove={handleRemove}
                     onHoverCard={setPreviewCard}

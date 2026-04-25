@@ -1,4 +1,4 @@
-import { BrowserRouter, Routes, Route, Navigate, useNavigate } from 'react-router-dom'
+import { BrowserRouter, Routes, Route, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
 import { AuthContext, useAuthProvider } from './hooks/useAuth'
 import { AuthForm } from './components/auth/AuthForm'
 import { ProtectedRoute } from './components/auth/ProtectedRoute'
@@ -14,23 +14,27 @@ import { SandboxPage } from './components/deck/SandboxPage'
 import { UtilitiesPage } from './components/deck/UtilitiesPage'
 import { useDeck } from './hooks/useDeck'
 import type { DeckInput } from './hooks/useDeck'
+import type { Game } from './lib/games'
 import { useAuth } from './hooks/useAuth'
 
 function NewDeckPage() {
   const navigate = useNavigate()
+  const [searchParams] = useSearchParams()
+  const gameParam = searchParams.get('game') as Game | null
+  const game: Game = gameParam === 'swu' ? 'swu' : 'mtg'
   const { createDeck, error } = useDeck()
 
   const handleSubmit = async (data: DeckInput) => {
     const result = await createDeck(data)
     if (!result) throw new Error(error ?? 'Failed to create deck')
-    navigate('/decks')
+    navigate('/decks?game=' + game)
   }
 
   return (
     <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
       <div className="w-full max-w-md px-4">
         <h1 className="text-2xl font-bold text-center mb-6">New Deck</h1>
-        <DeckForm onSubmit={handleSubmit} onCancel={() => navigate('/decks')} />
+        <DeckForm game={game} onSubmit={handleSubmit} onCancel={() => navigate('/decks?game=' + game)} />
       </div>
     </div>
   )

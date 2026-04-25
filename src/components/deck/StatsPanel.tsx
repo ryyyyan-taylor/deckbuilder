@@ -1,9 +1,11 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import type { DeckCard } from '../../hooks/useDeck'
+import type { Game } from '../../lib/games'
 import { getCardType } from '../../lib/cards'
 
 interface StatsPanelProps {
   deckCards: DeckCard[]
+  game: Game
   // Union color identity of all commander cards — when provided, colors outside
   // the identity are dimmed (like Moxfield does for Commander format decks).
   commanderColorIdentity?: string[]
@@ -46,10 +48,16 @@ function parseLandProduction(oracleText: string | null): string[] {
   return colors.size > 0 ? [...colors] : ['C']
 }
 
-export function StatsPanel({ deckCards, commanderColorIdentity }: StatsPanelProps) {
+export function StatsPanel({ deckCards, game, commanderColorIdentity }: StatsPanelProps) {
+  // For SWU, show cost curve + aspect pips. For MTG, show mana curve + color pips + land production.
+  // Phase 8 will split this into StatsPanelMtg and StatsPanelSwu; for now, MTG-only.
+  if (game === 'swu') {
+    return <div className="text-sm text-gray-500 p-4">SWU stats coming in Phase 8</div>
+  }
+
   const mainboard = deckCards.filter((dc) => dc.section === 'Mainboard')
-  const lands = mainboard.filter((dc) => getCardType(dc.card?.type_line ?? null) === 'Land')
-  const nonLands = mainboard.filter((dc) => getCardType(dc.card?.type_line ?? null) !== 'Land')
+  const lands = mainboard.filter((dc) => getCardType(dc.card ?? {}, game) === 'Land')
+  const nonLands = mainboard.filter((dc) => getCardType(dc.card ?? {}, game) !== 'Land')
 
   const totalMainboard = mainboard.reduce((s, dc) => s + dc.quantity, 0)
   const totalNonLands = nonLands.reduce((s, dc) => s + dc.quantity, 0)

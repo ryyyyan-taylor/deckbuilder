@@ -1,7 +1,9 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
-import { TYPE_ORDER, getCardType, packColumns } from '../../lib/cards'
+import { getTypeOrder, getCardType, packColumns } from '../../lib/cards'
+import { getMainSections } from '../../lib/games'
+import type { Game } from '../../lib/games'
 import { useMaxColumns } from '../../hooks/useMaxColumns'
 import { useAuth } from '../../hooks/useAuth'
 import type { Card, Deck } from '../../hooks/useDeck'
@@ -29,13 +31,14 @@ interface Slot {
   text: string
 }
 
-const MAIN_SECTIONS = new Set(['Mainboard'])
-
 export function ComparePage() {
   const { user } = useAuth()
   const [searchParams] = useSearchParams()
+  const gameParam = searchParams.get('game') as Game | null
+  const game: Game = gameParam === 'swu' ? 'swu' : 'mtg'
+  const mainSections = new Set(getMainSections(game))
   const initialDeckId = searchParams.get('deck') ?? ''
-  const defaultType = (withId = false): Slot['type'] => (withId || user ? 'saved' : 'moxfield')
+  const defaultType = (withId = false): Slot['type'] => (withId || user ? 'saved' : game === 'swu' ? 'swudb' : 'moxfield')
   const [slots, setSlots] = useState<Slot[]>([
     { type: defaultType(!!initialDeckId), deckId: initialDeckId, url: '', text: '' },
     { type: defaultType(), deckId: '', url: '', text: '' },
@@ -646,12 +649,13 @@ function CompareSection({
   // Group by type
   const grouped = new Map<string, CompareCard[]>()
   for (const cc of cards) {
-    const type = getCardType(cc.card.type_line)
+    const type = getCardType(cc.card, game)
     if (!grouped.has(type)) grouped.set(type, [])
     grouped.get(type)!.push(cc)
   }
 
-  const sortedGroups = TYPE_ORDER.filter((t) => grouped.has(t)).map((t) => ({
+  const typeOrder = getTypeOrder(game)
+  const sortedGroups = typeOrder.filter((t) => grouped.has(t)).map((t) => ({
     type: t,
     cards: grouped.get(t)!.sort((a, b) => a.name.localeCompare(b.name)),
   }))
@@ -703,7 +707,7 @@ function CompareSection({
         </div>
       ) : (
         <div ref={containerRef} className="flex flex-wrap justify-center gap-10">
-          {packColumns(sortedGroups, maxColumns).map((column, colIdx) => (
+          {packColumns(sortedGroups, maxColumns, typeOrder).map((column, colIdx) => (
             <div key={colIdx} className="w-[180px] min-w-0 flex flex-col gap-4">
               {column.map(({ type, cards: typeCards }) => (
                 <div key={type}>

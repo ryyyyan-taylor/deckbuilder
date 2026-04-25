@@ -705,6 +705,7 @@ export function SandboxPage() {
           <div className="mb-6 p-4 bg-gray-800 border border-gray-700 rounded">
             <DeckForm
               deck={deck}
+              game={deck?.game ?? 'mtg'}
               onSubmit={handleUpdateDeck}
               onCancel={() => setShowEditForm(false)}
             />
@@ -717,6 +718,7 @@ export function SandboxPage() {
             onAdd={handleAddCard}
             sections={cardSections}
             activeSection={cardSections.includes('Mainboard') ? 'Mainboard' : cardSections[0]}
+            game={deck?.game ?? 'mtg'}
             onHoverCard={setPreviewCard}
           />
         </div>
@@ -772,9 +774,9 @@ export function SandboxPage() {
               <div className="space-y-4">
                 {sections.map((s) =>
                   s === STATS_SECTION ? (
-                    <StatsPanel key={s} deckCards={deckCards} commanderColorIdentity={commanderColorIdentity} />
+                    <StatsPanel key={s} deckCards={deckCards} game={deck?.game ?? 'mtg'} commanderColorIdentity={commanderColorIdentity} />
                   ) : s === TEST_SECTION ? (
-                    <TestPanel key={s} deckCards={deckCards} onHoverCard={setPreviewCard} />
+                    <TestPanel key={s} deckCards={deckCards} game={deck?.game ?? 'mtg'} onHoverCard={setPreviewCard} />
                   ) : s === 'Sideboard' && showGuide ? (
                     <div key={s} className="rounded border border-gray-700 bg-gray-800/50 p-4">
                       <div className="flex items-center justify-between mb-4">
@@ -806,6 +808,7 @@ export function SandboxPage() {
                       <DeckSection
                         section={s}
                         cards={cardsBySection[s]}
+                        game={deck?.game ?? 'mtg'}
                         onQuantityChange={handleQuantityChange}
                         onRemove={handleRemove}
                         onHoverCard={setPreviewCard}
@@ -829,6 +832,7 @@ export function SandboxPage() {
                       key={s}
                       section={s}
                       cards={cardsBySection[s]}
+                      game={deck?.game ?? 'mtg'}
                       onQuantityChange={handleQuantityChange}
                       onRemove={handleRemove}
                       onHoverCard={setPreviewCard}

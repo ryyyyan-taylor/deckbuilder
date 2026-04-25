@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useDeck } from '../../hooks/useDeck'
 import type { Deck } from '../../hooks/useDeck'
 import { scryfallArtCropUrl } from '../../lib/cards'
+import { GameToggle, useSelectedGame } from '../GameToggle'
 
 function artUrl(deck: Deck): string | null {
   const dc = deck.display_card
@@ -15,6 +16,7 @@ function artUrl(deck: Deck): string | null {
 export function DeckList() {
   const { decks, loading, error, fetchDecks, deleteDeck } = useDeck()
   const [searchParams, setSearchParams] = useSearchParams()
+  const selectedGame = useSelectedGame()
   const formatFilter = searchParams.get('format')
 
   useEffect(() => {
@@ -32,34 +34,42 @@ export function DeckList() {
     await deleteDeck(id)
   }
 
+  const gameDecks = useMemo(
+    () => decks.filter((d) => d.game === selectedGame),
+    [decks, selectedGame]
+  )
+
   const formatGroups = useMemo(() => {
-    const groups = new Map<string, typeof decks>()
-    for (const deck of decks) {
+    const groups = new Map<string, typeof gameDecks>()
+    for (const deck of gameDecks) {
       const fmt = deck.format || 'Unformatted'
       const list = groups.get(fmt)
       if (list) list.push(deck)
       else groups.set(fmt, [deck])
     }
     return groups
-  }, [decks])
+  }, [gameDecks])
 
   const filteredDecks = useMemo(() => {
     if (!formatFilter) return []
-    return decks.filter((d) =>
+    return gameDecks.filter((d) =>
       formatFilter === 'Unformatted' ? !d.format : d.format === formatFilter
     )
-  }, [decks, formatFilter])
+  }, [gameDecks, formatFilter])
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">
       <div className="flex items-center justify-between mb-6">
         <h1 className="text-xl font-semibold">My Decks</h1>
-        <Link
-          to="/decks/new"
-          className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium text-sm"
-        >
-          New Deck
-        </Link>
+        <div className="flex items-center gap-3">
+          <GameToggle />
+          <Link
+            to={`/decks/new?game=${selectedGame}`}
+            className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded font-medium text-sm"
+          >
+            New Deck
+          </Link>
+        </div>
       </div>
 
       {error && (
@@ -70,8 +80,8 @@ export function DeckList() {
 
       {loading ? (
         <p className="text-gray-400">Loading...</p>
-      ) : decks.length === 0 ? (
-        <p className="text-gray-400">No decks yet. Create one to get started!</p>
+      ) : gameDecks.length === 0 ? (
+        <p className="text-gray-400">No {selectedGame === 'mtg' ? 'MTG' : 'SWU'} decks yet. Create one to get started!</p>
       ) : formatFilter ? (
         /* Filtered deck list for a specific format — art grid */
         <>

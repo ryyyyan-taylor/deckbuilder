@@ -270,9 +270,9 @@ export function ViewDeckPage() {
             <div className="space-y-4">
               {sections.map((s) =>
                 s === STATS_SECTION ? (
-                  <StatsPanel key={s} deckCards={deckCards} />
+                  <StatsPanel key={s} deckCards={deckCards} game={deck!.game ?? 'mtg'} />
                 ) : s === TEST_SECTION ? (
-                  <TestPanel key={s} deckCards={deckCards} onHoverCard={setPreviewCard} />
+                  <TestPanel key={s} deckCards={deckCards} game={deck!.game ?? 'mtg'} onHoverCard={setPreviewCard} />
                 ) : s === 'Sideboard' && showGuide ? (
                   <div key={s} className="rounded border border-gray-700 bg-gray-800/50 p-4">
                     <div className="flex items-center justify-between mb-4">
@@ -302,6 +302,7 @@ export function ViewDeckPage() {
                 ) : s === 'Sideboard' ? (
                   <div key={s} className="relative">
                     <DeckSection
+                      game={deck!.game ?? 'mtg'}
                       section={s}
                       cards={cardsBySection[s]}
                       onHoverCard={setPreviewCard}
@@ -323,6 +324,7 @@ export function ViewDeckPage() {
                     key={s}
                     section={s}
                     cards={cardsBySection[s]}
+                    game={deck!.game ?? 'mtg'}
                     onHoverCard={setPreviewCard}
                     sortBy={sortBy}
                     viewMode={viewMode}

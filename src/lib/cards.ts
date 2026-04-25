@@ -1,8 +1,33 @@
-export const TYPE_ORDER = ['Creature', 'Planeswalker', 'Battle', 'Sorcery', 'Instant', 'Enchantment', 'Artifact', 'Land', 'Other']
+import type { Game } from './games'
+import { getSwuCardType, SWU_TYPE_ORDER } from './swu'
+
+export const MTG_TYPE_ORDER = ['Creature', 'Planeswalker', 'Battle', 'Sorcery', 'Instant', 'Enchantment', 'Artifact', 'Land', 'Other'] as const
+export const TYPE_ORDER = MTG_TYPE_ORDER // backwards-compat export
+
+export function getTypeOrder(game: Game = 'mtg'): readonly string[] {
+  return game === 'swu' ? SWU_TYPE_ORDER : MTG_TYPE_ORDER
+}
 
 /** Build a Scryfall art_crop CDN URL from a scryfall_id */
 export function scryfallArtCropUrl(scryfallId: string): string {
   return `https://cards.scryfall.io/art_crop/front/${scryfallId[0]}/${scryfallId[1]}/${scryfallId}.jpg`
+}
+
+/** Build a SWUAPI image URL from card data */
+export function swudbImageUrl(imageUris: Record<string, string> | null | undefined): string {
+  return imageUris?.normal ?? ''
+}
+
+/** Get the appropriate image URL for a card based on game and size */
+export function cardImageUrl(
+  card: { image_uris?: Record<string, string> | null },
+  game: Game,
+  size: 'normal' | 'art_crop' = 'normal'
+): string {
+  if (game === 'swu') {
+    return swudbImageUrl(card.image_uris)
+  }
+  return card.image_uris?.[size] ?? ''
 }
 
 /** Height constants for card column stacking (in px) */
@@ -38,13 +63,17 @@ function colHeight(col: TypeGroup[]): number {
 /**
  * Pack type groups into columns to fit within maxColumns.
  * Only packs when the number of groups exceeds maxColumns;
- * otherwise each group gets its own column in TYPE_ORDER.
+ * otherwise each group gets its own column in typeOrder.
  *
  * When packing is needed, first tries priority merges (Artifact+Enchantment,
  * then Instant+Sorcery) — but only if the merged height ≤ the current tallest
  * column (i.e. it saves height). Falls back to bin-packing for any remainder.
  */
-export function packColumns<T extends TypeGroup>(groups: T[], maxColumns: number): T[][] {
+export function packColumns<T extends TypeGroup>(
+  groups: T[],
+  maxColumns: number,
+  typeOrder: readonly string[] = MTG_TYPE_ORDER
+): T[][] {
   if (groups.length === 0) return []
 
   // No packing needed — everything fits
@@ -69,9 +98,9 @@ export function packColumns<T extends TypeGroup>(groups: T[], maxColumns: number
     const mergedHeight = height(columns[idxA]) + GROUP_GAP + height(columns[idxB])
     if (mergedHeight > maxHeight) continue // would increase height — skip
 
-    // Merge, preserving TYPE_ORDER within the combined column
+    // Merge, preserving typeOrder within the combined column
     const merged = [...columns[idxA], ...columns[idxB]].sort(
-      (a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)
+      (a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type)
     ) as T[]
     const removeIdx = idxA < idxB ? idxB : idxA
     const keepIdx = idxA < idxB ? idxA : idxB
@@ -115,11 +144,11 @@ export function packColumns<T extends TypeGroup>(groups: T[], maxColumns: number
       }
     }
 
-    // Restore TYPE_ORDER within each column and sort columns left-to-right
-    // by the TYPE_ORDER position of their leading group.
+    // Restore typeOrder within each column and sort columns left-to-right
+    // by the typeOrder position of their leading group.
     columns = columns
-      .map((col) => [...col].sort((a, b) => TYPE_ORDER.indexOf(a.type) - TYPE_ORDER.indexOf(b.type)) as T[])
-      .sort((a, b) => TYPE_ORDER.indexOf(a[0].type) - TYPE_ORDER.indexOf(b[0].type))
+      .map((col) => [...col].sort((a, b) => typeOrder.indexOf(a.type) - typeOrder.indexOf(b.type)) as T[])
+      .sort((a, b) => typeOrder.indexOf(a[0].type) - typeOrder.indexOf(b[0].type))
   }
 
   return columns
@@ -129,7 +158,20 @@ export function commanderToSlug(name: string): string {
   return name.toLowerCase().replace(/[',]/g, '').replace(/\s+/g, '-')
 }
 
-export function getCardType(typeLine: string | null): string {
+interface CardForType {
+  type_line?: string | null
+  swu_type?: string | null
+  arena?: string | null
+}
+
+export function getCardType(card: CardForType, game: Game = 'mtg'): string {
+  if (game === 'swu') {
+    return getSwuCardType(card)
+  }
+  return getMtgCardType(card.type_line ?? null)
+}
+
+function getMtgCardType(typeLine: string | null): string {
   if (!typeLine) return 'Other'
   // For DFCs, only classify by the front face (before ' // ')
   const front = typeLine.split(' // ')[0]

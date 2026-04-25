@@ -6,6 +6,7 @@ export interface Card {
   id: string
   scryfall_id: string
   name: string
+  game: 'mtg' | 'swu'
   mana_cost: string | null
   cmc: number | null
   type_line: string | null
@@ -13,7 +14,14 @@ export interface Card {
   color_identity: string[]
   set_code: string | null
   oracle_text: string | null
-  image_uris: { small: string; normal: string; large: string; png: string; art_crop?: string } | null
+  image_uris: { small?: string; normal: string; large?: string; png?: string; art_crop?: string; back?: string } | null
+  // SWU-specific
+  aspects?: string[] | null
+  cost?: number | null
+  arena?: string | null
+  hp?: number | null
+  power?: number | null
+  swu_type?: string | null
 }
 
 export interface DeckCard {
@@ -30,6 +38,7 @@ export interface Deck {
   user_id: string
   name: string
   format: string | null
+  game: 'mtg' | 'swu'
   description: string | null
   is_public: boolean
   sections: string[]
@@ -44,6 +53,7 @@ export interface DeckInput {
   format: string
   description: string
   is_public: boolean
+  game?: 'mtg' | 'swu'
   sections?: string[]
   display_card_id?: string | null
 }
