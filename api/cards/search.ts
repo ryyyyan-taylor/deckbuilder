@@ -5,7 +5,7 @@ import { env } from "../_lib/env";
 import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../_lib/rateLimit";
 import { setCorsHeaders } from "../_lib/cors";
 import { searchScryfall, scryfallToRow } from "../_lib/scryfall";
-import { searchSwuapiCards } from "../_lib/swudb";
+import { searchSwuapiCards, type SwuapiCard } from "../_lib/swudb";
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
@@ -47,10 +47,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 2. Cache miss — fetch from appropriate source
-    let cards: any[] = [];
+    let cards: Record<string, unknown>[] = [];
     if (game === "swu") {
       const swuCards = await searchSwuapiCards(query, 20);
-      cards = swuCards.map((c: any) => ({
+      cards = swuCards.map((c: SwuapiCard) => ({
         game: "swu",
         scryfall_id: c.uuid,
         name: c.subtitle ? `${c.name}, ${c.subtitle}` : c.name,
@@ -86,7 +86,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     const { data: freshData } = await supabase
       .from("cards")
       .select("*")
-      .in("scryfall_id", cards.map((r: any) => r.scryfall_id))
+      .in("scryfall_id", cards.map((r: Record<string, unknown>) => String(r.scryfall_id)))
       .eq("game", game);
 
     return res.status(200).json({ data: freshData ?? cards, source: game === "swu" ? "swuapi" : "scryfall" });

@@ -23,6 +23,7 @@ Rate limits are per-IP and reset every 60 seconds:
 | Card Search | 60 req/min | 1 min |
 | Single Card | 100 req/min | 1 min |
 | Moxfield Import | 20 req/min | 1 min |
+| SWUDB Import | 20 req/min | 1 min |
 | EDHREC Suggestions | 30 req/min | 1 min |
 | EDHTop16 Results | 30 req/min | 1 min |
 | MTGTop8 Results | 30 req/min | 1 min |
@@ -41,6 +42,7 @@ Search for Magic cards by name.
 
 **Query Parameters:**
 - `q` (string, required): Search query (min 2 characters, max 100 characters)
+- `game` (string, optional): 'mtg' or 'swu' (defaults to 'mtg')
 
 **Response:** `200 OK`
 ```json
@@ -70,9 +72,13 @@ Search for Magic cards by name.
 
 **Error:** `400 Bad Request` | `429 Too Many Requests` | `500 Server Error`
 
-**Example:**
+**Examples:**
 ```bash
+# MTG card search (default)
 curl "https://deckbuilder.ryantaylor.tech/api/cards/search?q=lightning+bolt"
+
+# SWU card search
+curl "https://deckbuilder.ryantaylor.tech/api/cards/search?q=luke&game=swu"
 ```
 
 ---
@@ -84,7 +90,10 @@ curl "https://deckbuilder.ryantaylor.tech/api/cards/search?q=lightning+bolt"
 Get details for a specific card by Scryfall ID.
 
 **Path Parameters:**
-- `scryfall_id` (string, required): Scryfall card ID (UUID format)
+- `scryfall_id` (string, required): Card ID (UUID format for MTG, e.g. SOR_001 for SWU)
+
+**Query Parameters:**
+- `game` (string, optional): 'mtg' or 'swu' (defaults to 'mtg')
 
 **Response:** `200 OK`
 ```json
@@ -98,11 +107,11 @@ Get details for a specific card by Scryfall ID.
 
 ---
 
-### 📥 Import from Moxfield
+### 📥 Import from Moxfield (MTG)
 
 **POST `/api/import/moxfield`** ⚠️ *Origin-checked*
 
-Import a deck from Moxfield.
+Import a Magic: The Gathering deck from Moxfield.
 
 **Headers:**
 - `Content-Type: application/json`
@@ -126,7 +135,8 @@ Import a deck from Moxfield.
       "quantity": "number"
     }
   ],
-  "sections": ["string"]
+  "sections": ["string"],
+  "game": "mtg"
 }
 ```
 
@@ -138,6 +148,62 @@ curl -X POST "https://deckbuilder.ryantaylor.tech/api/import/moxfield" \
   -H "Content-Type: application/json" \
   -H "Origin: https://deckbuilder.ryantaylor.tech" \
   -d '{"url":"https://www.moxfield.com/decks/abc123"}'
+```
+
+---
+
+### 📥 Import from SWUDB (SWU)
+
+**POST `/api/import/swudb`** ⚠️ *Origin-checked*
+
+Import a Star Wars: Unlimited deck from SWUDB.
+
+**Headers:**
+- `Content-Type: application/json`
+- `Origin: https://deckbuilder.ryantaylor.tech` (validated)
+
+**Request Body:**
+```json
+{
+  "url": "https://swudb.com/deck/{deckId}"
+}
+```
+
+**Response:** `200 OK`
+```json
+{
+  "name": "string",
+  "cards": [
+    {
+      "card_id": "uuid",
+      "section": "Leader/Base|Ground Units|Space Units|Events|Upgrades|Sideboard",
+      "quantity": "number"
+    }
+  ],
+  "sections": ["string"],
+  "game": "swu"
+}
+```
+
+**Error:** `400 Bad Request` | `403 Forbidden` | `429 Too Many Requests` | `500 Server Error` | `502 Bad Gateway`
+
+**Notes:**
+- Main deck cards are automatically split into game-specific sections based on card type:
+  - Leader cards → Leader/Base
+  - Base cards → Leader/Base
+  - Ground Unit cards → Ground Units
+  - Space Unit cards → Space Units
+  - Event cards → Events
+  - Upgrade cards → Upgrades
+- Sideboard cards remain in Sideboard
+- Max 1 Leader and 1 Base allowed per deck (enforced by UI, not API)
+
+**Example:**
+```bash
+curl -X POST "https://deckbuilder.ryantaylor.tech/api/import/swudb" \
+  -H "Content-Type: application/json" \
+  -H "Origin: https://deckbuilder.ryantaylor.tech" \
+  -d '{"url":"https://swudb.com/deck/my-deck-id"}'
 ```
 
 ---

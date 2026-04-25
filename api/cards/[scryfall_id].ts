@@ -47,7 +47,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     // 2. Cache miss — fetch from appropriate source
-    let card: any = null;
+    let card: Record<string, unknown> | null = null;
     let source = "unknown";
 
     if (game === "swu") {

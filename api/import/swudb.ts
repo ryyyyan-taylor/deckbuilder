@@ -5,17 +5,8 @@ import { env } from "./_lib/env";
 import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "./_lib/rateLimit";
 import { setCorsHeaders, verifyOrigin } from "./_lib/cors";
 import { fetchSwudbDeck, fetchSwuapiCardById, searchSwuapiCards, swudbToRow } from "./_lib/swudb";
-import { getSwuCardType } from "../../src/lib/swu";
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
-
-// SWU section mapping
-const SECTION_MAP: Record<string, string> = {
-  leader: "Leader/Base",
-  base: "Leader/Base",
-  sideboard: "Sideboard",
-  // Main deck cards are split by type after resolution
-};
 
 interface DeckCard {
   uuid: string;
@@ -98,7 +89,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     }
 
     const existingMap = new Map(
-      (existingCards ?? []).map((c: any) => [c.scryfall_id, c])
+      (existingCards ?? []).map((c: Record<string, unknown>) => [c.scryfall_id, c])
     );
 
     // Fetch from SWUAPI if card is missing
@@ -135,7 +126,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       return res.status(500).json({ error: "Failed to look up cards" });
     }
 
-    const cardDataMap = new Map(dbCards.map((c: any) => [c.scryfall_id, c]));
+    const cardDataMap = new Map(dbCards.map((c: Record<string, unknown>) => [c.scryfall_id, c]));
 
     // For any cards still missing (couldn't fetch), try name fallback
     const stillMissing = allCards.filter((c) => !cardDataMap.has(c.uuid));

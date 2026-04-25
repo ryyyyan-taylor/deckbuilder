@@ -25,7 +25,7 @@ interface CompareCard {
 }
 
 interface Slot {
-  type: 'saved' | 'moxfield' | 'text'
+  type: 'saved' | 'moxfield' | 'swudb' | 'text'
   deckId: string
   url: string
   text: string
@@ -68,11 +68,12 @@ export function ComparePage() {
       .from('decks')
       .select('id, user_id, name, format, description, is_public, sections, created_at, updated_at')
       .eq('user_id', user.id)
+      .eq('game', game)
       .order('updated_at', { ascending: false })
       .then(({ data }) => {
         if (data) setSavedDecks(data as Deck[])
       })
-  }, [user])
+  }, [user, game])
 
   useEffect(() => {
     if (!contextMenu) return
@@ -225,8 +226,9 @@ export function ComparePage() {
         setError(`Please select a deck for slot ${i + 1}`)
         return
       }
-      if (s.type === 'moxfield' && !s.url.trim()) {
-        setError(`Please enter a Moxfield URL for slot ${i + 1}`)
+      if ((s.type === 'moxfield' || s.type === 'swudb') && !s.url.trim()) {
+        const label = s.type === 'swudb' ? 'SWUDB' : 'Moxfield'
+        setError(`Please enter a ${label} URL for slot ${i + 1}`)
         return
       }
       if (s.type === 'text' && !s.text.trim()) {
@@ -248,7 +250,8 @@ export function ComparePage() {
           if (s.type === 'text') {
             return fetchTextDeck(s.text, `Deck ${i + 1}`)
           }
-          const res = await fetch('/api/import/moxfield', {
+          const endpoint = s.type === 'swudb' ? '/api/import/swudb' : '/api/import/moxfield'
+          const res = await fetch(endpoint, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ url: s.url.trim() }),
@@ -263,7 +266,7 @@ export function ComparePage() {
 
       // DEBUG: raw import results
       decks.forEach((d, i) => {
-        const source = slots[i].type === 'saved' ? 'saved' : 'moxfield'
+        const source = slots[i].type === 'saved' ? 'saved' : slots[i].type === 'text' ? 'text' : slots[i].type
         const sections = [...new Set(d.cards.map((c) => c.section))].sort().join(', ')
         console.log(`[compare] deck ${i} "${d.name}" (${source}): ${d.cards.length} rows, sections: ${sections}`)
       })
@@ -302,8 +305,8 @@ export function ComparePage() {
         const map = new Map<string, Card>()
         const missing: string[] = []
         const dupes: string[] = []
-        const mainCards = cards.filter((c) => MAIN_SECTIONS.has(c.section))
-        const skipped = cards.filter((c) => !MAIN_SECTIONS.has(c.section))
+        const mainCards = cards.filter((c) => mainSections.has(c.section))
+        const skipped = cards.filter((c) => !mainSections.has(c.section))
         console.log(`[compare] ${label}: ${cards.length} rows → ${mainCards.length} main (skipped ${skipped.length} from: ${[...new Set(skipped.map(c => c.section))].join(', ') || 'none'})`)
         for (const c of mainCards) {
           const card = cardMap.get(c.card_id)
@@ -385,7 +388,11 @@ export function ComparePage() {
                     className="w-28 shrink-0 bg-gray-800 border border-gray-700 rounded px-2 py-2 text-sm focus:outline-none focus:border-blue-500"
                   >
                     {user && <option value="saved">My Deck</option>}
-                    <option value="moxfield">Moxfield</option>
+                    {game === 'swu' ? (
+                      <option value="swudb">SWUDB</option>
+                    ) : (
+                      <option value="moxfield">Moxfield</option>
+                    )}
                     <option value="text">Text</option>
                   </select>
 
@@ -408,7 +415,11 @@ export function ComparePage() {
                       type="text"
                       value={slot.url}
                       onChange={(e) => updateSlotUrl(i, e.target.value)}
-                      placeholder="https://www.moxfield.com/decks/..."
+                      placeholder={
+                        slot.type === 'swudb'
+                          ? 'https://swudb.com/deck/...'
+                          : 'https://www.moxfield.com/decks/...'
+                      }
                       className="flex-1 bg-gray-800 border border-gray-700 rounded px-3 py-2 text-sm focus:outline-none focus:border-blue-500"
                     />
                   )}
@@ -470,6 +481,7 @@ export function ComparePage() {
               <CompareSection
                 title="Shared"
                 cards={result.shared}
+                game={game}
                 viewMode={viewMode}
                 onHoverCard={setPreviewCard}
                 onRightClick={targetSections.length > 0 ? (card, x, y) => setContextMenu({ x, y, card }) : undefined}
@@ -479,6 +491,7 @@ export function ComparePage() {
                   key={i}
                   title={`Unique to ${u.name}`}
                   cards={u.cards}
+                  game={game}
                   viewMode={viewMode}
                   onHoverCard={setPreviewCard}
                   onRightClick={targetSections.length > 0 ? (card, x, y) => setContextMenu({ x, y, card }) : undefined}
@@ -614,12 +627,14 @@ function DeckSearchInput({
 function CompareSection({
   title,
   cards,
+  game,
   viewMode = 'stacks',
   onHoverCard,
   onRightClick,
 }: {
   title: string
   cards: CompareCard[]
+  game: Game
   viewMode?: 'stacks' | 'grid'
   onHoverCard: (card: Card | null) => void
   onRightClick?: (card: Card, x: number, y: number) => void

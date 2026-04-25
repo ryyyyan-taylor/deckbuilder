@@ -3,7 +3,8 @@ import { Link, useSearchParams } from 'react-router-dom'
 import { useDeck } from '../../hooks/useDeck'
 import type { Deck } from '../../hooks/useDeck'
 import { scryfallArtCropUrl } from '../../lib/cards'
-import { GameToggle, useSelectedGame } from '../GameToggle'
+import { GameToggle } from '../GameToggle'
+import { useSelectedGame } from '../../hooks/useSelectedGame'
 
 function artUrl(deck: Deck): string | null {
   const dc = deck.display_card

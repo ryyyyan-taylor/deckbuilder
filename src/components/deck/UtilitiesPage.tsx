@@ -1,6 +1,7 @@
 import { useEffect } from 'react'
 import { Link } from 'react-router-dom'
-import { GameToggle, useSelectedGame } from '../GameToggle'
+import { GameToggle } from '../GameToggle'
+import { useSelectedGame } from '../../hooks/useSelectedGame'
 
 export function UtilitiesPage() {
   const selectedGame = useSelectedGame()

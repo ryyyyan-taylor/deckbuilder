@@ -2,7 +2,8 @@ import { useEffect, useRef, useReducer } from 'react'
 import { Link } from 'react-router-dom'
 import { supabase } from '../../lib/supabase'
 import { scryfallArtCropUrl } from '../../lib/cards'
-import { GameToggle, useSelectedGame } from '../GameToggle'
+import { GameToggle } from '../GameToggle'
+import { useSelectedGame } from '../../hooks/useSelectedGame'
 
 const PAGE_SIZE = 20
 
@@ -113,7 +114,7 @@ export function PublicDecksPage() {
   useEffect(() => {
     offsetRef.current = 0
     fetchPage(0, false)
-  }, [selectedGame])
+  }, [selectedGame, fetchPage])
 
   useEffect(() => {
     const el = sentinelRef.current
@@ -128,7 +129,7 @@ export function PublicDecksPage() {
     )
     observer.observe(el)
     return () => observer.disconnect()
-  }, [hasMore, loadingMore, loading])
+  }, [hasMore, loadingMore, loading, fetchPage])
 
   return (
     <div className="max-w-5xl mx-auto px-4 py-8">

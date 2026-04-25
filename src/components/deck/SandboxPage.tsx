@@ -1,6 +1,8 @@
 import { useEffect, useState, useCallback, useRef } from 'react'
 import { createPortal } from 'react-dom'
-import { Link } from 'react-router-dom'
+import { Link, useSearchParams } from 'react-router-dom'
+import type { Game } from '../../lib/games'
+import { GAME_LABELS } from '../../lib/games'
 import {
   DndContext, closestCenter, PointerSensor, useSensor, useSensors,
   type DragEndEvent,
@@ -43,6 +45,10 @@ function SortablePill({ id, children }: { id: string; children: React.ReactNode 
 }
 
 export function SandboxPage() {
+  const [searchParams] = useSearchParams()
+  const gameParam = searchParams.get('game') as Game | null
+  const game: Game = gameParam === 'swu' ? 'swu' : 'mtg'
+
   const {
     deck, deckCards,
     clearSandbox, updateDeck,
@@ -50,7 +56,7 @@ export function SandboxPage() {
     updateDeckCardSection, updateDeckCardQuantity,
     renameDeckCardSection, moveDeckCardsToSection,
     bulkAddCards, updateDeckCardVersion,
-  } = useSandboxDeck()
+  } = useSandboxDeck(game)
 
   const [showEditForm, setShowEditForm] = useState(false)
   const [previewCard, setPreviewCard] = useState<Card | null>(null)
@@ -534,7 +540,7 @@ export function SandboxPage() {
             <h1 className="text-2xl font-bold mt-1">{deck.name}</h1>
             <div className="flex items-center gap-2 mt-1">
               <span className="bg-gray-700 px-2 py-0.5 rounded text-xs text-gray-300">
-                Sandbox
+                Sandbox {GAME_LABELS[game]}
               </span>
               {deck.format && (
                 <span className="bg-gray-700 px-2 py-0.5 rounded text-xs text-gray-300">

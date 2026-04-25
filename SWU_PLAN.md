@@ -12,10 +12,10 @@
 | 6 | Dashboard + public page toggle | ✅ DONE | 2026-04-24 |
 | 7 | SWUDB deck import | ✅ DONE | 2026-04-24 |
 | 8 | Stats panel (cost curve + aspect pips) | ✅ DONE | 2026-04-24 |
-| 9 | Sandbox + compare gating | ⏳ TODO | — |
-| 10 | Docs + QA | ⏳ TODO | — |
+| 9 | Sandbox + compare gating | ✅ DONE | 2026-04-24 |
+| 10 | Docs + QA | ✅ DONE | 2026-04-24 |
 
-**Current state:** 8/10 phases complete. 8,071 SWU cards seeded. Stats panel fully game-aware (MTG: mana curve + color pips + land production; SWU: cost curve + aspect pips + card type breakdown). Ready for sandbox/compare gating and final QA.
+**Current state:** ✅ **10/10 phases complete**. SWU integration fully implemented, documented, and ready for production. All MTG and SWU workflows functional and tested.
 
 ## Context
 

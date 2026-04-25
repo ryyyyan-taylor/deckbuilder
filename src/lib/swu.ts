@@ -40,6 +40,6 @@ export function getSwuCardType(card: SwuCardData): string {
     if (card.arena === 'Space') return 'Space Unit'
     return 'Unit'
   }
-  if (SWU_TYPES.includes(t as any)) return t
+  if (SWU_TYPES.includes(t as typeof SWU_TYPES[number])) return t
   return 'Other'
 }

@@ -29,7 +29,7 @@ async function seed() {
     const batch = rows.slice(i, i + BATCH_SIZE)
     const { error } = await supabase
       .from('cards')
-      .upsert(batch as any, { onConflict: 'scryfall_id,game' })
+      .upsert(batch as Array<Record<string, unknown>>, { onConflict: 'scryfall_id,game' })
 
     if (error) {
       console.error(`Batch ${i / BATCH_SIZE + 1} failed:`, error)
