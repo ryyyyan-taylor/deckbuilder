@@ -11,11 +11,11 @@
 | 5 | DeckForm + editor wiring | ✅ DONE | 2026-04-24 |
 | 6 | Dashboard + public page toggle | ✅ DONE | 2026-04-24 |
 | 7 | SWUDB deck import | ✅ DONE | 2026-04-24 |
-| 8 | Stats panel (cost curve + aspect pips) | ⏳ TODO | — |
+| 8 | Stats panel (cost curve + aspect pips) | ✅ DONE | 2026-04-24 |
 | 9 | Sandbox + compare gating | ⏳ TODO | — |
 | 10 | Docs + QA | ⏳ TODO | — |
 
-**Current state:** 7/10 phases complete. 8,071 SWU cards seeded. SWUDB deck import functional (fetches from swudb.com/deck/{id}.json). EditDeckPage and SandboxPage both game-aware. MTG flows fully backward-compatible. Ready for stats panel and sandbox/compare gating.
+**Current state:** 8/10 phases complete. 8,071 SWU cards seeded. Stats panel fully game-aware (MTG: mana curve + color pips + land production; SWU: cost curve + aspect pips + card type breakdown). Ready for sandbox/compare gating and final QA.
 
 ## Context
 

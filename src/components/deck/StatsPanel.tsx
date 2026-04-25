@@ -1,7 +1,9 @@
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts'
 import type { DeckCard } from '../../hooks/useDeck'
 import type { Game } from '../../lib/games'
-import { getCardType } from '../../lib/cards'
+import { getCardType, getTypeOrder } from '../../lib/cards'
+import { getMainSections } from '../../lib/games'
+import { ASPECT_COLORS } from '../../lib/swu'
 
 interface StatsPanelProps {
   deckCards: DeckCard[]
@@ -49,15 +51,16 @@ function parseLandProduction(oracleText: string | null): string[] {
 }
 
 export function StatsPanel({ deckCards, game, commanderColorIdentity }: StatsPanelProps) {
-  // For SWU, show cost curve + aspect pips. For MTG, show mana curve + color pips + land production.
-  // Phase 8 will split this into StatsPanelMtg and StatsPanelSwu; for now, MTG-only.
   if (game === 'swu') {
-    return <div className="text-sm text-gray-500 p-4">SWU stats coming in Phase 8</div>
+    return <StatsPanelSwu deckCards={deckCards} />
   }
+  return <StatsPanelMtg deckCards={deckCards} commanderColorIdentity={commanderColorIdentity} />
+}
 
+function StatsPanelMtg({ deckCards, commanderColorIdentity }: Omit<StatsPanelProps, 'game'>) {
   const mainboard = deckCards.filter((dc) => dc.section === 'Mainboard')
-  const lands = mainboard.filter((dc) => getCardType(dc.card ?? {}, game) === 'Land')
-  const nonLands = mainboard.filter((dc) => getCardType(dc.card ?? {}, game) !== 'Land')
+  const lands = mainboard.filter((dc) => getCardType(dc.card ?? {}, 'mtg') === 'Land')
+  const nonLands = mainboard.filter((dc) => getCardType(dc.card ?? {}, 'mtg') !== 'Land')
 
   const totalMainboard = mainboard.reduce((s, dc) => s + dc.quantity, 0)
   const totalNonLands = nonLands.reduce((s, dc) => s + dc.quantity, 0)
@@ -124,7 +127,7 @@ export function StatsPanel({ deckCards, game, commanderColorIdentity }: StatsPan
         Stats <span className="text-gray-500">({totalMainboard})</span>
       </h3>
 
-      {/* Color breakdown */}
+      {/* MTG Color breakdown */}
       <div>
         <div className="grid grid-cols-6 gap-3">
           {COLORS.map(({ key, label, hex }) => {
@@ -230,6 +233,146 @@ export function StatsPanel({ deckCards, game, commanderColorIdentity }: StatsPan
           </ResponsiveContainer>
         </div>
       )}
+    </div>
+  )
+}
+
+function StatsPanelSwu({ deckCards }: { deckCards: DeckCard[] }) {
+  const mainSections = getMainSections('swu')
+  const mainCards = deckCards.filter((dc) => mainSections.includes(dc.section))
+  const totalMain = mainCards.reduce((s, dc) => s + dc.quantity, 0)
+
+  if (totalMain === 0) {
+    return (
+      <div className="rounded border p-4 border-gray-700 bg-gray-800/50">
+        <h3 className="text-sm font-semibold text-gray-300 mb-3">Stats</h3>
+        <p className="text-gray-600 text-xs py-4">Add cards to your deck to see statistics</p>
+      </div>
+    )
+  }
+
+  // Cost curve (0–7+)
+  const costData = Array.from({ length: 8 }, (_, i) => ({
+    cost: i < 7 ? String(i) : '7+',
+    count: 0,
+  }))
+  for (const dc of mainCards) {
+    const cost = dc.card?.cost ?? 0
+    const bucket = Math.min(Math.floor(cost), 7)
+    costData[bucket].count += dc.quantity
+  }
+
+  // Aspect pips
+  const aspectCounts: Record<string, number> = {}
+  for (const aspect of Object.keys(ASPECT_COLORS)) {
+    aspectCounts[aspect] = 0
+  }
+  for (const dc of mainCards) {
+    const aspects = dc.card?.aspects ?? []
+    for (const aspect of aspects) {
+      if (aspect in ASPECT_COLORS) {
+        aspectCounts[aspect] += dc.quantity
+      }
+    }
+  }
+
+  // Card type breakdown
+  const typeOrder = getTypeOrder('swu')
+  const typeCounts: Record<string, number> = {}
+  for (const type of typeOrder) {
+    typeCounts[type] = 0
+  }
+  for (const dc of mainCards) {
+    const type = getCardType(dc.card ?? {}, 'swu')
+    typeCounts[type] = (typeCounts[type] ?? 0) + dc.quantity
+  }
+
+  return (
+    <div className="rounded border p-4 border-gray-700 bg-gray-800/50 space-y-5">
+      <h3 className="text-sm font-semibold text-gray-300">
+        Stats <span className="text-gray-500">({totalMain})</span>
+      </h3>
+
+      {/* Aspect pips */}
+      <div>
+        <div className="grid grid-cols-6 gap-3">
+          {Object.entries(ASPECT_COLORS).map(([aspect, hex]) => {
+            const count = aspectCounts[aspect] ?? 0
+            const pct = totalMain > 0 ? Math.round((count / totalMain) * 100) : 0
+            const isActive = count > 0
+
+            return (
+              <div
+                key={aspect}
+                className={`flex flex-col items-center gap-1 min-w-0 transition-opacity ${!isActive ? 'opacity-25' : ''}`}
+              >
+                {/* Colored pip */}
+                <div
+                  className="w-7 h-7 rounded-full shrink-0"
+                  style={{ backgroundColor: hex }}
+                />
+                <div className="text-[10px] text-gray-500 leading-none text-center truncate">{aspect}</div>
+
+                {/* Count and percentage */}
+                <div className="text-center mt-1">
+                  <div
+                    className="text-2xl font-bold leading-none tabular-nums"
+                    style={{ color: isActive ? hex : '#6b7280' }}
+                  >
+                    {pct}%
+                  </div>
+                  <div className="text-[10px] text-gray-600 mt-0.5 leading-none">{count} card{count !== 1 ? 's' : ''}</div>
+                </div>
+              </div>
+            )
+          })}
+        </div>
+
+        <p className="text-[10px] text-gray-700 mt-3 text-center">
+          Cards with multiple aspects count towards each &middot; Main sections only
+        </p>
+      </div>
+
+      {/* Cost curve */}
+      {Object.values(costData).some((d) => d.count > 0) && (
+        <div>
+          <h4 className="text-xs font-medium text-gray-500 mb-2">Cost Curve</h4>
+          <ResponsiveContainer width="100%" height={90}>
+            <BarChart data={costData} margin={{ top: 0, right: 4, bottom: 0, left: -24 }}>
+              <XAxis dataKey="cost" tick={{ fontSize: 10, fill: '#6b7280' }} axisLine={false} tickLine={false} />
+              <YAxis tick={{ fontSize: 10, fill: '#6b7280' }} allowDecimals={false} axisLine={false} tickLine={false} />
+              <Tooltip
+                cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                contentStyle={{ backgroundColor: '#111827', border: '1px solid #374151', borderRadius: 6, fontSize: 11 }}
+                labelStyle={{ color: '#e5e7eb' }}
+                itemStyle={{ color: '#93c5fd' }}
+                formatter={(value) => [value, 'Cards']}
+              />
+              <Bar dataKey="count" fill="#3b82f6" radius={[2, 2, 0, 0]} />
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
+      {/* Card type breakdown */}
+      <div>
+        <h4 className="text-xs font-medium text-gray-500 mb-2">Card Types</h4>
+        <div className="grid grid-cols-2 gap-2">
+          {typeOrder.map((type) => {
+            const count = typeCounts[type] ?? 0
+            if (count === 0) return null
+            const pct = totalMain > 0 ? Math.round((count / totalMain) * 100) : 0
+            return (
+              <div key={type} className="flex items-center justify-between text-sm">
+                <span className="text-gray-400">{type}</span>
+                <span className="text-gray-300 tabular-nums">
+                  {count} <span className="text-gray-600">({pct}%)</span>
+                </span>
+              </div>
+            )
+          })}
+        </div>
+      </div>
     </div>
   )
 }
