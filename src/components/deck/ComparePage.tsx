@@ -36,7 +36,7 @@ export function ComparePage() {
   const [searchParams] = useSearchParams()
   const gameParam = searchParams.get('game') as Game | null
   const game: Game = gameParam === 'swu' ? 'swu' : 'mtg'
-  const mainSections = new Set(getMainSections(game))
+  const mainSections = new Set(getMainSections())
   const initialDeckId = searchParams.get('deck') ?? ''
   const defaultType = (withId = false): Slot['type'] => (withId || user ? 'saved' : game === 'swu' ? 'swudb' : 'moxfield')
   const [slots, setSlots] = useState<Slot[]>([

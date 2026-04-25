@@ -238,7 +238,7 @@ function StatsPanelMtg({ deckCards, commanderColorIdentity }: Omit<StatsPanelPro
 }
 
 function StatsPanelSwu({ deckCards }: { deckCards: DeckCard[] }) {
-  const mainSections = getMainSections('swu')
+  const mainSections = getMainSections()
   const mainCards = deckCards.filter((dc) => mainSections.includes(dc.section))
   const totalMain = mainCards.reduce((s, dc) => s + dc.quantity, 0)
 

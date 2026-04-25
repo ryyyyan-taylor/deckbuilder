@@ -53,6 +53,6 @@ export function getProtectedSections(game: Game, format: string): string[] {
   return commanderFormats.includes(format) ? [...base, 'Commander'] : base
 }
 
-export function getMainSections(game: Game): string[] {
+export function getMainSections(): string[] {
   return ['Mainboard']
 }
