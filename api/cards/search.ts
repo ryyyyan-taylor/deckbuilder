@@ -49,7 +49,14 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     // 2. Cache miss — fetch from appropriate source
     let cards: Record<string, unknown>[] = [];
     if (game === "swu") {
-      const swuCards = await searchSwuapiCards(query, 20);
+      let swuCards: SwuapiCard[] = [];
+      try {
+        swuCards = await searchSwuapiCards(query, 20);
+      } catch (swuErr) {
+        const msg = swuErr instanceof Error ? swuErr.message : "SWUAPI unavailable";
+        console.error("[API] SWUAPI search failed", { query, error: msg });
+        return res.status(200).json({ data: [], source: "swuapi" });
+      }
       cards = swuCards.map((c: SwuapiCard) => ({
         game: "swu",
         scryfall_id: c.uuid,
@@ -89,7 +96,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       .in("scryfall_id", cards.map((r: Record<string, unknown>) => String(r.scryfall_id)))
       .eq("game", game);
 
-    return res.status(200).json({ data: freshData ?? cards, source: game === "swu" ? "swuapi" : "scryfall" });
+    return res.status(200).json({ data: (freshData && freshData.length > 0) ? freshData : cards, source: game === "swu" ? "swuapi" : "scryfall" });
   } catch (err) {
     if (err && typeof err === 'object' && 'code' in err && err.code === 'VALIDATION_ERROR') {
       const errMsg = 'message' in err ? String(err.message) : 'Validation error';

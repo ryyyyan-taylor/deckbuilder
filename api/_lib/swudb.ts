@@ -100,6 +100,38 @@ interface DbCardInsert {
   image_uris: Record<string, string>
 }
 
+// The /export/all endpoint returns camelCase keys; normalize to SwuapiCard (snake_case).
+function normalizeBulkCard(c: Record<string, unknown>): SwuapiCard {
+  return {
+    uuid: c.uuid as string,
+    collector_number: (c.id ?? c.collector_number ?? '') as string,
+    name: c.name as string,
+    subtitle: (c.subtitle ?? null) as string | null,
+    type: c.type as string,
+    aspects: (c.aspects ?? []) as string[],
+    arena: (c.arena ?? null) as string | null,
+    cost: (c.cost ?? null) as number | null,
+    power: (c.power ?? null) as number | null,
+    hp: (c.hp ?? null) as number | null,
+    front_image_url: (c.frontImageUrl ?? c.front_image_url ?? '') as string,
+    back_image_url: (c.backImageUrl ?? c.back_image_url ?? null) as string | null,
+    set_code: (c.setCode ?? c.set_code ?? '') as string,
+    card_number: (c.cardNumber ?? c.card_number ?? '') as string,
+    keywords: (c.keywords ?? []) as string[],
+    traits: (c.traits ?? []) as string[],
+    artist: (c.artist ?? '') as string,
+    rarity: (c.rarity ?? '') as string,
+    is_leader: (c.isLeader ?? c.is_leader ?? false) as boolean,
+    is_base: (c.isBase ?? c.is_base ?? false) as boolean,
+    variant_type: (c.variantType ?? c.variant_type ?? '') as string,
+    epic_action: (c.epicAction ?? c.epic_action ?? null) as string | null,
+    created_at: (c.created_at ?? '') as string,
+    updated_at: (c.updated_at ?? '') as string,
+    external_id: (c.externalId ?? c.external_id ?? 0) as number,
+    external_uid: (c.externalUid ?? c.external_uid ?? '') as string,
+  }
+}
+
 export async function fetchSwuapiBulk(): Promise<SwuapiCard[]> {
   const url = `${SWUAPI_BASE}/export/all`
   const controller = new AbortController()
@@ -111,8 +143,8 @@ export async function fetchSwuapiBulk(): Promise<SwuapiCard[]> {
       headers: { Accept: 'application/json' },
     })
     if (!res.ok) throw new Error(`SWUAPI bulk fetch failed: ${res.status}`)
-    const data = await res.json() as { cards: SwuapiCard[] }
-    return data.cards ?? []
+    const data = await res.json() as { cards: Record<string, unknown>[] }
+    return (data.cards ?? []).map(normalizeBulkCard)
   } finally {
     clearTimeout(timeout)
   }
