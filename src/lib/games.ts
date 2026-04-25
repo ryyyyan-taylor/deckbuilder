@@ -31,16 +31,7 @@ export function getFormats(game: Game): string[] {
 
 export function getDefaultSections(game: Game, format: string): string[] {
   if (game === 'swu') {
-    return [
-      'Leader/Base',
-      'Ground Units',
-      'Space Units',
-      'Events',
-      'Upgrades',
-      'Sideboard',
-      'Stats',
-      'Test',
-    ]
+    return ['Leader/Base', 'Mainboard', 'Sideboard', 'Stats', 'Test']
   }
 
   // MTG
@@ -53,7 +44,7 @@ export function getDefaultSections(game: Game, format: string): string[] {
 
 export function getProtectedSections(game: Game, format: string): string[] {
   if (game === 'swu') {
-    return ['Leader/Base', 'Stats', 'Test']
+    return ['Leader/Base', 'Mainboard', 'Stats', 'Test']
   }
 
   // MTG
@@ -63,8 +54,5 @@ export function getProtectedSections(game: Game, format: string): string[] {
 }
 
 export function getMainSections(game: Game): string[] {
-  if (game === 'swu') {
-    return ['Ground Units', 'Space Units', 'Events', 'Upgrades']
-  }
   return ['Mainboard']
 }

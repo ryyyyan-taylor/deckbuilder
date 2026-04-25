@@ -163,23 +163,11 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
       let section = "Sideboard"; // default
 
-      // Determine section based on SWU type
       const swuType = cardData.swu_type;
       if (swuType === "Leader" || swuType === "Base") {
         section = "Leader/Base";
-      } else if (swuType === "Unit") {
-        // Split units by arena
-        if (cardData.arena === "Ground") {
-          section = "Ground Units";
-        } else if (cardData.arena === "Space") {
-          section = "Space Units";
-        } else {
-          section = "Ground Units"; // default
-        }
-      } else if (swuType === "Event") {
-        section = "Events";
-      } else if (swuType === "Upgrade") {
-        section = "Upgrades";
+      } else {
+        section = "Mainboard";
       }
 
       if (!cardsBySection[section]) {
