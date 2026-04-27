@@ -7,6 +7,7 @@ import type { Game } from '../../lib/games'
 import { useMaxColumns } from '../../hooks/useMaxColumns'
 import { useAuth } from '../../hooks/useAuth'
 import type { Card, Deck } from '../../hooks/useDeck'
+import CardPreviewPanel from './CardPreviewPanel'
 
 interface ImportedCard {
   card_id: string
@@ -502,40 +503,7 @@ export function ComparePage() {
             {/* Sticky preview panel */}
             <div className="w-[300px] shrink-0 hidden lg:block">
               <div className="sticky top-[25vh]">
-                {previewCard ? (
-                  <div>
-                    {previewCard.image_uris?.normal ? (
-                      <img
-                        src={previewCard.image_uris.normal}
-                        alt={previewCard.name}
-                        className="w-full rounded-lg shadow-xl"
-                      />
-                    ) : (
-                      <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-sm text-gray-400 p-4 text-center">
-                        No image available
-                      </div>
-                    )}
-                    <div className="mt-3 space-y-1">
-                      <p className="font-semibold text-sm">{previewCard.name}</p>
-                      {previewCard.mana_cost && (
-                        <p className="text-gray-400 text-sm">{previewCard.mana_cost}</p>
-                      )}
-                      {previewCard.type_line && (
-                        <p className="text-gray-500 text-xs">{previewCard.type_line}</p>
-                      )}
-                      {previewCard.oracle_text && (
-                        <p className="text-gray-400 text-xs mt-2 whitespace-pre-line leading-relaxed">{previewCard.oracle_text}</p>
-                      )}
-                      {previewCard.set_code && (
-                        <p className="text-gray-600 text-xs uppercase mt-2">{previewCard.set_code}</p>
-                      )}
-                    </div>
-                  </div>
-                ) : (
-                  <div className="w-full aspect-[2.5/3.5] bg-gray-800 border border-gray-700 rounded-lg flex items-center justify-center text-sm text-gray-600 p-4 text-center">
-                    Hover over a card to preview
-                  </div>
-                )}
+                <CardPreviewPanel card={previewCard} game={game} />
               </div>
             </div>
           </div>
