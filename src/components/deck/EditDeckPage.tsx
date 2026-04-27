@@ -147,15 +147,21 @@ export function EditDeckPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
-  // Auto-set display card for commander decks that have a commander but no display card
+  // Auto-set display card when none is chosen yet
   useEffect(() => {
     if (!deck || !id) return
     if (deck.display_card_id) return
-    if (!['Commander', 'cEDH', 'Duel Commander'].includes(deck.format ?? '')) return
     if (deckCards.length === 0) return
-    const commanderCard = deckCards.find((dc) => dc.section === 'Commander')
-    if (!commanderCard) return
-    updateDeck(id, { display_card_id: commanderCard.card_id }).then((result) => {
+
+    let displayCard: typeof deckCards[0] | undefined
+    if (deck.game === 'swu') {
+      displayCard = deckCards.find((dc) => dc.section === 'Leader/Base' && dc.card?.swu_type === 'Leader')
+    } else if (['Commander', 'cEDH', 'Duel Commander'].includes(deck.format ?? '')) {
+      displayCard = deckCards.find((dc) => dc.section === 'Commander')
+    }
+
+    if (!displayCard) return
+    updateDeck(id, { display_card_id: displayCard.card_id }).then((result) => {
       if (result) setDeck(result)
     })
   // updateDeck is not memoized — adding it would cause infinite re-renders

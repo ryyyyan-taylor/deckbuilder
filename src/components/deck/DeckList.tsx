@@ -10,7 +10,8 @@ function artUrl(deck: Deck): string | null {
   const dc = deck.display_card
   if (!dc) return null
   if (dc.image_uris?.art_crop) return dc.image_uris.art_crop
-  if (dc.scryfall_id) return scryfallArtCropUrl(dc.scryfall_id)
+  // SWU cards have no art_crop; Scryfall CDN URLs are invalid for SWU IDs
+  if (deck.game !== 'swu' && dc.scryfall_id) return scryfallArtCropUrl(dc.scryfall_id)
   return dc.image_uris?.normal ?? null
 }
 

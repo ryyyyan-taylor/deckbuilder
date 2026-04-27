@@ -13,6 +13,7 @@ type RawDeck = {
   id: string
   name: string
   format: string | null
+  game: string
   updated_at: string
   display_card: DisplayCard | DisplayCard[]
 }
@@ -21,6 +22,7 @@ type PublicDeck = {
   id: string
   name: string
   format: string | null
+  game: string
   updated_at: string
   display_card: DisplayCard
 }
@@ -71,7 +73,8 @@ function artUrl(deck: PublicDeck): string | null {
   const dc = deck.display_card
   if (!dc) return null
   if (dc.image_uris?.art_crop) return dc.image_uris.art_crop
-  if (dc.scryfall_id) return scryfallArtCropUrl(dc.scryfall_id)
+  // SWU cards have no art_crop; Scryfall CDN URLs are invalid for SWU IDs
+  if (deck.game !== 'swu' && dc.scryfall_id) return scryfallArtCropUrl(dc.scryfall_id)
   return dc.image_uris?.normal ?? null
 }
 
@@ -91,7 +94,7 @@ export function PublicDecksPage() {
 
     const { data, error: err } = await supabase
       .from('decks')
-      .select('id, name, format, updated_at, display_card:cards!display_card_id(scryfall_id, image_uris)')
+      .select('id, name, format, game, updated_at, display_card:cards!display_card_id(scryfall_id, image_uris)')
       .eq('is_public', true)
       .eq('game', selectedGame)
       .order('updated_at', { ascending: false })
