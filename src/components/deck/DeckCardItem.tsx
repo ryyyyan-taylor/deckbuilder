@@ -14,9 +14,10 @@ interface DeckCardItemProps {
   onMobileTap?: () => void
   onActiveChange?: (active: boolean) => void
   readOnly?: boolean
+  sizeByHeight?: boolean
 }
 
-export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard, sections, onSendToSection, onAddToSection, onRequestVersionPicker, onMobileTap, onActiveChange, readOnly }: DeckCardItemProps) {
+export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard, sections, onSendToSection, onAddToSection, onRequestVersionPicker, onMobileTap, onActiveChange, readOnly, sizeByHeight }: DeckCardItemProps) {
   const [expanded, setExpanded] = useState(false)
   const [flipped, setFlipped] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
@@ -85,6 +86,13 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
   const backUrl = deckCard.card ? cardBackFaceUrl(deckCard.card) : null
   const imageUrl = flipped && backUrl ? backUrl : deckCard.card?.image_uris?.normal
 
+  // Pass a synthetic card to the preview pane reflecting the current face
+  const hoverCard = deckCard.card
+    ? (flipped && backUrl
+        ? { ...deckCard.card, image_uris: { ...deckCard.card.image_uris, normal: backUrl } as typeof deckCard.card.image_uris }
+        : deckCard.card)
+    : null
+
   return (
     <div
       ref={cardRef}
@@ -92,10 +100,10 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
         zIndex: expanded || contextMenu ? 50 : undefined,
         position: 'relative' as const,
       }}
-      className={`relative w-[200px] shrink-0 ${readOnly ? '' : 'cursor-pointer'}`}
+      className={`relative shrink-0 ${sizeByHeight ? '' : 'w-[200px]'} ${readOnly ? '' : 'cursor-pointer'}`}
       onClick={readOnly || isMobile ? undefined : () => { setExpanded((prev) => !prev); setContextMenu(null) }}
       onContextMenu={handleContextMenu}
-      onMouseEnter={isMobile ? undefined : () => onHoverCard?.(deckCard.card ?? null)}
+      onMouseEnter={isMobile ? undefined : () => onHoverCard?.(hoverCard)}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
@@ -104,11 +112,11 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
         <img
           src={imageUrl}
           alt={deckCard.card?.name ?? 'Card'}
-          className="w-full rounded-lg"
+          className={sizeByHeight ? 'h-[280px] w-auto rounded-lg' : 'w-full rounded-lg'}
           draggable={false}
         />
       ) : (
-        <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
+        <div className="w-[200px] aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
           {deckCard.card?.name ?? 'Unknown card'}
         </div>
       )}

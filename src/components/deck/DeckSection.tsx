@@ -72,6 +72,7 @@ export function DeckSection({ section, cards, game, onQuantityChange, onRemove, 
                 onMobileTap={() => onMobileTap?.(dc)}
                 onRequestVersionPicker={() => onRequestVersionPicker?.(dc)}
                 readOnly={readOnly}
+                sizeByHeight={isLeaderBase}
               />
             ))}
           </div>
