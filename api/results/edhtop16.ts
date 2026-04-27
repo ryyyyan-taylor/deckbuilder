@@ -37,7 +37,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
 
   // Verify origin for this expensive endpoint
   try {
-    verifyOrigin(req.headers.origin);
+    verifyOrigin(req.headers.origin, undefined, req.headers.host);
   } catch (err) {
     console.warn("[API] origin verification failed", {
       origin: req.headers.origin,
