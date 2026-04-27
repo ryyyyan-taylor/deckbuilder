@@ -112,18 +112,18 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
       onTouchEnd={handleTouchEnd}
     >
       {sizeByHeight ? (
-        <div className="w-full h-[280px] rounded-lg overflow-hidden">
+        // Square container so portrait and landscape cards both render at the same
+        // visual area (200×280 vs 280×200) with equal letterbox margins — no cropping.
+        <div className="w-[280px] h-[280px] rounded-lg overflow-hidden bg-gray-800/40 flex items-center justify-center">
           {imageUrl ? (
             <img
               src={imageUrl}
               alt={deckCard.card?.name ?? 'Card'}
-              className="w-full h-full object-cover rounded-lg"
+              className="max-w-full max-h-full object-contain rounded-sm"
               draggable={false}
             />
           ) : (
-            <div className="w-full h-full bg-gray-700 flex items-center justify-center text-xs text-gray-400 p-2 text-center">
-              {deckCard.card?.name ?? 'Unknown card'}
-            </div>
+            <span className="text-xs text-gray-400 p-2 text-center">{deckCard.card?.name ?? 'Unknown card'}</span>
           )}
         </div>
       ) : imageUrl ? (
