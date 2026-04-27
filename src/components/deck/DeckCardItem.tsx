@@ -93,6 +93,9 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
         : deckCard.card)
     : null
 
+  // In read-only mode only allow expanding if the card has a back face
+  const canExpand = !isMobile && (!readOnly || !!backUrl)
+
   return (
     <div
       ref={cardRef}
@@ -100,23 +103,36 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
         zIndex: expanded || contextMenu ? 50 : undefined,
         position: 'relative' as const,
       }}
-      className={`relative shrink-0 ${sizeByHeight ? '' : 'w-[200px]'} ${readOnly ? '' : 'cursor-pointer'}`}
-      onClick={readOnly || isMobile ? undefined : () => { setExpanded((prev) => !prev); setContextMenu(null) }}
+      className={`relative w-[200px] shrink-0 ${canExpand ? 'cursor-pointer' : ''}`}
+      onClick={canExpand ? () => { setExpanded((prev) => !prev); setContextMenu(null) } : undefined}
       onContextMenu={handleContextMenu}
       onMouseEnter={isMobile ? undefined : () => onHoverCard?.(hoverCard)}
       onTouchStart={handleTouchStart}
       onTouchMove={handleTouchMove}
       onTouchEnd={handleTouchEnd}
     >
-      {imageUrl ? (
+      {sizeByHeight ? (
+        <div className="w-full h-[280px] flex items-center justify-center rounded-lg overflow-hidden bg-gray-800/40">
+          {imageUrl ? (
+            <img
+              src={imageUrl}
+              alt={deckCard.card?.name ?? 'Card'}
+              className="max-w-full max-h-full object-contain rounded-lg"
+              draggable={false}
+            />
+          ) : (
+            <span className="text-xs text-gray-400 p-2 text-center">{deckCard.card?.name ?? 'Unknown card'}</span>
+          )}
+        </div>
+      ) : imageUrl ? (
         <img
           src={imageUrl}
           alt={deckCard.card?.name ?? 'Card'}
-          className={sizeByHeight ? 'h-[280px] w-auto rounded-lg' : 'w-full rounded-lg'}
+          className="w-full rounded-lg"
           draggable={false}
         />
       ) : (
-        <div className="w-[200px] aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
+        <div className="w-full aspect-[2.5/3.5] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
           {deckCard.card?.name ?? 'Unknown card'}
         </div>
       )}
@@ -126,6 +142,26 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
         <span className="absolute top-1 right-1 bg-black/80 text-white text-xs font-bold px-1.5 py-0.5 rounded">
           {deckCard.quantity}x
         </span>
+      )}
+
+      {/* Read-only flip overlay — only shown for DFC/leader cards */}
+      {expanded && readOnly && !isMobile && backUrl && (
+        <div className="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center">
+          <button
+            onClick={(e) => {
+              e.stopPropagation()
+              setFlipped(f => !f)
+              setExpanded(false)
+            }}
+            className="flex items-center gap-1.5 px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+              <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+              <path d="M3 3v5h5" />
+            </svg>
+            {flipped ? 'Front' : 'Back'}
+          </button>
+        </div>
       )}
 
       {/* Desktop: expanded overlay with controls */}
