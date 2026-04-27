@@ -18,6 +18,15 @@ export function swudbImageUrl(imageUris: Record<string, string> | null | undefin
   return imageUris?.normal ?? ''
 }
 
+/** Returns the back-face image URL for DFCs (MTG) and Leaders (SWU), null if single-faced */
+export function cardBackFaceUrl(card: { name?: string | null; type_line?: string | null; scryfall_id?: string; image_uris?: Record<string, string> | null }): string | null {
+  if (card.image_uris?.back) return card.image_uris.back
+  const isDfc = card.name?.includes(' // ') || card.type_line?.includes(' // ')
+  if (!isDfc || !card.scryfall_id) return null
+  const id = card.scryfall_id
+  return `https://cards.scryfall.io/normal/back/${id[0]}/${id[1]}/${id}.jpg`
+}
+
 /** Get the appropriate image URL for a card based on game and size */
 export function cardImageUrl(
   card: { image_uris?: Record<string, string> | null },

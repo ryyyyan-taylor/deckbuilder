@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react'
 import type { DeckCard, Card } from '../../hooks/useDeck'
+import { cardBackFaceUrl } from '../../lib/cards'
 
 interface DeckCardItemProps {
   deckCard: DeckCard
@@ -17,6 +18,7 @@ interface DeckCardItemProps {
 
 export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard, sections, onSendToSection, onAddToSection, onRequestVersionPicker, onMobileTap, onActiveChange, readOnly }: DeckCardItemProps) {
   const [expanded, setExpanded] = useState(false)
+  const [flipped, setFlipped] = useState(false)
   const [contextMenu, setContextMenu] = useState<{ x: number; y: number } | null>(null)
   const [activeSubmenu, setActiveSubmenu] = useState<'send' | 'add' | null>(null)
   const cardRef = useRef<HTMLDivElement>(null)
@@ -80,7 +82,8 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
     }
   }
 
-  const imageUrl = deckCard.card?.image_uris?.normal
+  const backUrl = deckCard.card ? cardBackFaceUrl(deckCard.card) : null
+  const imageUrl = flipped && backUrl ? backUrl : deckCard.card?.image_uris?.normal
 
   return (
     <div
@@ -119,37 +122,55 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
 
       {/* Desktop: expanded overlay with controls */}
       {expanded && !readOnly && !isMobile && (
-        <div className="absolute inset-0 bg-black/60 rounded-lg flex items-center justify-center gap-1">
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onQuantityChange?.(deckCard.id, deckCard.quantity - 1)
-            }}
-            className="w-7 h-7 bg-gray-700 hover:bg-gray-600 rounded text-white text-sm font-bold"
-          >
-            −
-          </button>
-          <span className="text-white font-mono text-sm w-6 text-center">
-            {deckCard.quantity}
-          </span>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onQuantityChange?.(deckCard.id, deckCard.quantity + 1)
-            }}
-            className="w-7 h-7 bg-gray-700 hover:bg-gray-600 rounded text-white text-sm font-bold"
-          >
-            +
-          </button>
-          <button
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemove?.(deckCard.id)
-            }}
-            className="w-7 h-7 bg-red-700 hover:bg-red-600 rounded text-white text-sm font-bold ml-1"
-          >
-            ✕
-          </button>
+        <div className="absolute inset-0 bg-black/60 rounded-lg flex flex-col items-center justify-center gap-2">
+          <div className="flex items-center gap-1">
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onQuantityChange?.(deckCard.id, deckCard.quantity - 1)
+              }}
+              className="w-7 h-7 bg-gray-700 hover:bg-gray-600 rounded text-white text-sm font-bold"
+            >
+              −
+            </button>
+            <span className="text-white font-mono text-sm w-6 text-center">
+              {deckCard.quantity}
+            </span>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onQuantityChange?.(deckCard.id, deckCard.quantity + 1)
+              }}
+              className="w-7 h-7 bg-gray-700 hover:bg-gray-600 rounded text-white text-sm font-bold"
+            >
+              +
+            </button>
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                onRemove?.(deckCard.id)
+              }}
+              className="w-7 h-7 bg-red-700 hover:bg-red-600 rounded text-white text-sm font-bold ml-1"
+            >
+              ✕
+            </button>
+          </div>
+          {backUrl && (
+            <button
+              onClick={(e) => {
+                e.stopPropagation()
+                setFlipped(f => !f)
+              }}
+              title={flipped ? 'Show front face' : 'Show back face'}
+              className="flex items-center gap-1.5 px-2.5 py-1 bg-gray-700 hover:bg-gray-600 rounded text-white text-xs"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="w-3.5 h-3.5">
+                <path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+                <path d="M3 3v5h5" />
+              </svg>
+              {flipped ? 'Front' : 'Back'}
+            </button>
+          )}
         </div>
       )}
 
