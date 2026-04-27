@@ -64,6 +64,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
           hp: swuCard.hp ?? null,
           power: swuCard.power ?? null,
           set_code: swuCard.set_code,
+          card_number: swuCard.card_number || null,
           type_line: swuCard.type,
           image_uris: {
             normal: swuCard.front_image_url,

@@ -68,6 +68,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
         hp: c.hp ?? null,
         power: c.power ?? null,
         set_code: c.set_code,
+        card_number: c.card_number || null,
         type_line: c.type,
         image_uris: {
           normal: c.front_image_url,

@@ -84,6 +84,7 @@ export function EditDeckPage() {
   const [selectedVersionId, setSelectedVersionId] = useState<string | null>(null)
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [versionSearch, setVersionSearch] = useState('')
+  const [karabastCopied, setKarabastCopied] = useState(false)
   const [showGuide, setShowGuide] = useState(false)
   const [guideConflict, setGuideConflict] = useState<{
     message: string
@@ -617,6 +618,38 @@ export function EditDeckPage() {
     return acc
   }, {})
 
+  const handleCopyKarabastJson = () => {
+    const toId = (card: Card | undefined) => {
+      if (!card?.set_code || !card?.card_number) return null
+      return `${card.set_code}_${String(card.card_number).padStart(3, '0')}`
+    }
+    const leader = deckCards.find((dc) => dc.section === 'Leader/Base' && dc.card?.swu_type === 'Leader')
+    const base = deckCards.find((dc) => dc.section === 'Leader/Base' && dc.card?.swu_type === 'Base')
+    const mainCards = deckCards.filter((dc) => dc.section !== 'Leader/Base' && dc.section !== 'Sideboard' && dc.section !== 'Stats' && dc.section !== 'Test')
+    const sideboardCards = deckCards.filter((dc) => dc.section === 'Sideboard')
+
+    const missingCardNumber = [leader, base, ...mainCards, ...sideboardCards]
+      .filter(Boolean)
+      .some((dc) => !dc!.card?.card_number)
+    if (missingCardNumber) {
+      addToast('Some cards are missing card numbers — re-seed SWU cards to fix')
+      return
+    }
+
+    const json = JSON.stringify({
+      metadata: { name: deck!.name },
+      ...(leader ? { leader: { id: toId(leader.card), count: 1 } } : {}),
+      ...(base ? { base: { id: toId(base.card), count: 1 } } : {}),
+      deck: mainCards.map((dc) => ({ id: toId(dc.card), count: dc.quantity })),
+      ...(sideboardCards.length > 0 ? { sideboard: sideboardCards.map((dc) => ({ id: toId(dc.card), count: dc.quantity })) } : {}),
+    }, null, 2)
+
+    navigator.clipboard.writeText(json).then(() => {
+      setKarabastCopied(true)
+      setTimeout(() => setKarabastCopied(false), 2000)
+    })
+  }
+
   const countForSections = (names: string[]) =>
     deckCards.filter((dc) => names.includes(dc.section)).reduce((sum, dc) => sum + dc.quantity, 0)
   const mainDeckCount = countForSections(['Mainboard', 'Commander'])
@@ -716,6 +749,14 @@ export function EditDeckPage() {
               >
                 Share
               </a>
+              {deck?.game === 'swu' && (
+                <button
+                  onClick={handleCopyKarabastJson}
+                  className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+                >
+                  {karabastCopied ? 'Copied!' : 'Karabast JSON'}
+                </button>
+              )}
               <button
                 onClick={() => setShowEditForm(!showEditForm)}
                 className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
@@ -1229,6 +1270,14 @@ export function EditDeckPage() {
               >
                 Share
               </a>
+              {deck?.game === 'swu' && (
+                <button
+                  onClick={() => { handleCopyKarabastJson(); setShowActionsMenu(false) }}
+                  className="w-full text-left px-4 py-3.5 text-sm text-gray-300 hover:bg-gray-700 border-t border-gray-700"
+                >
+                  {karabastCopied ? 'Copied!' : 'Karabast JSON'}
+                </button>
+              )}
               <button
                 onClick={() => { setShowEditForm(!showEditForm); setShowActionsMenu(false) }}
                 className="w-full text-left px-4 py-3.5 text-sm text-gray-300 hover:bg-gray-700 border-t border-gray-700"

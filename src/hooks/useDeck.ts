@@ -22,6 +22,7 @@ export interface Card {
   hp?: number | null
   power?: number | null
   swu_type?: string | null
+  card_number?: string | null
 }
 
 export interface DeckCard {

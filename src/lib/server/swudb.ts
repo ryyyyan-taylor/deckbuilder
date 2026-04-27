@@ -76,6 +76,7 @@ export function swudbToRow(card: SwuapiCard): DbCardInsert {
     hp: card.hp ?? null,
     power: card.power ?? null,
     set_code: card.set_code,
+    card_number: card.card_number || null,
     type_line: card.type, // keep type_line populated for generic code paths
     image_uris: {
       normal: card.front_image_url,
@@ -96,6 +97,7 @@ interface DbCardInsert {
   hp: number | null
   power: number | null
   set_code: string
+  card_number: string | null
   type_line: string
   image_uris: Record<string, string>
 }
