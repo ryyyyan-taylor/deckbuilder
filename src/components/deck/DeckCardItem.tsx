@@ -103,7 +103,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
         zIndex: expanded || contextMenu ? 50 : undefined,
         position: 'relative' as const,
       }}
-      className={`relative w-[200px] shrink-0 ${canExpand ? 'cursor-pointer' : ''}`}
+      className={`relative shrink-0 ${!sizeByHeight ? 'w-[200px]' : ''} ${canExpand ? 'cursor-pointer' : ''}`}
       onClick={canExpand ? () => { setExpanded((prev) => !prev); setContextMenu(null) } : undefined}
       onContextMenu={handleContextMenu}
       onMouseEnter={isMobile ? undefined : () => onHoverCard?.(hoverCard)}
@@ -112,20 +112,18 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
       onTouchEnd={handleTouchEnd}
     >
       {sizeByHeight ? (
-        // Square container so portrait and landscape cards both render at the same
-        // visual area (200×280 vs 280×200) with equal letterbox margins — no cropping.
-        <div className="w-[280px] h-[280px] rounded-lg overflow-hidden bg-gray-800/40 flex items-center justify-center">
-          {imageUrl ? (
-            <img
-              src={imageUrl}
-              alt={deckCard.card?.name ?? 'Card'}
-              className="max-w-full max-h-full object-contain rounded-sm"
-              draggable={false}
-            />
-          ) : (
-            <span className="text-xs text-gray-400 p-2 text-center">{deckCard.card?.name ?? 'Unknown card'}</span>
-          )}
-        </div>
+        imageUrl ? (
+          <img
+            src={imageUrl}
+            alt={deckCard.card?.name ?? 'Card'}
+            className="max-h-[280px] max-w-[280px] w-auto h-auto rounded-lg block"
+            draggable={false}
+          />
+        ) : (
+          <div className="w-[200px] h-[280px] bg-gray-700 rounded-lg flex items-center justify-center text-xs text-gray-400 p-2 text-center">
+            {deckCard.card?.name ?? 'Unknown card'}
+          </div>
+        )
       ) : imageUrl ? (
         <img
           src={imageUrl}
