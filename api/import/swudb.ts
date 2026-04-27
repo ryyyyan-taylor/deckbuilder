@@ -1,10 +1,10 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import { validateSwudbUrl } from "../../src/lib/validation";
-import { env } from "./_lib/env";
-import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "./_lib/rateLimit";
-import { setCorsHeaders, verifyOrigin } from "./_lib/cors";
-import { fetchSwudbDeck, fetchSwuapiCardById, searchSwuapiCards, swudbToRow } from "./_lib/swudb";
+import { validateSwudbUrl } from "../../src/lib/validation.js";
+import { env } from "../../src/lib/server/env.js";
+import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../../src/lib/server/rateLimit.js";
+import { setCorsHeaders, verifyOrigin } from "../../src/lib/server/cors.js";
+import { fetchSwudbDeck, fetchSwuapiCardById, searchSwuapiCards, swudbToRow } from "../../src/lib/server/swudb.js";
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
