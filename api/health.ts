@@ -23,7 +23,7 @@ export default async function handler(_req: VercelRequest, res: VercelResponse) 
 
       const { error } = await Promise.race([
         supabase.from("cards").select("id").limit(1),
-        new Promise((_, reject) =>
+        new Promise<never>((_, reject) =>
           setTimeout(() => reject(new Error("Timeout")), 5000)
         ),
       ]);

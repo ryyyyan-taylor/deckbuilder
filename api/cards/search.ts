@@ -76,7 +76,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
       }));
     } else {
       const scryfallCards = await searchScryfall(query);
-      cards = scryfallCards.map(scryfallToRow);
+      cards = scryfallCards.map(scryfallToRow) as Record<string, unknown>[];
     }
 
     // 3. Write results back to cache

@@ -75,7 +75,7 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     } else {
       const scryfallCard = await fetchScryfallById(cardId);
       if (scryfallCard) {
-        card = scryfallToRow(scryfallCard);
+        card = scryfallToRow(scryfallCard) as Record<string, unknown>;
         source = "scryfall";
       }
     }
