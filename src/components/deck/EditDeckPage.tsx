@@ -634,7 +634,7 @@ export function EditDeckPage() {
 
   const displayCardOptions = [...new Map(
     deckCards
-      .filter((dc) => ['Commander', 'Mainboard'].includes(dc.section))
+      .filter((dc) => cardSections.includes(dc.section))
       .map((dc) => [dc.card_id, { card_id: dc.card_id, name: dc.card?.name ?? 'Unknown' }])
   ).values()].sort((a, b) => a.name.localeCompare(b.name))
 
