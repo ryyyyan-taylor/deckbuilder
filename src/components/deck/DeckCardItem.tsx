@@ -103,7 +103,7 @@ export function DeckCardItem({ deckCard, onQuantityChange, onRemove, onHoverCard
         zIndex: expanded || contextMenu ? 50 : undefined,
         position: 'relative' as const,
       }}
-      className={`relative shrink-0 ${!sizeByHeight ? 'w-[200px]' : ''} ${canExpand ? 'cursor-pointer' : ''}`}
+      className={`relative shrink-0 ${!sizeByHeight ? 'w-[200px]' : 'self-start'} ${canExpand ? 'cursor-pointer' : ''}`}
       onClick={canExpand ? () => { setExpanded((prev) => !prev); setContextMenu(null) } : undefined}
       onContextMenu={handleContextMenu}
       onMouseEnter={isMobile ? undefined : () => onHoverCard?.(hoverCard)}
