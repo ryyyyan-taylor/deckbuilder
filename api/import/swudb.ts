@@ -8,12 +8,9 @@ import { fetchSwudbDeck, searchSwuapiCards, swudbToRow, type SwudbDeckCard } fro
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
-// Map SWUDB numeric type+arena to our section name
+// Map SWUDB numeric type to our section name
 function cardSection(card: SwudbDeckCard): string {
   if (card.type === 0 || card.type === 1) return 'Leader/Base'
-  if (card.type === 2) return card.arena === 1 ? 'Space Units' : 'Ground Units'
-  if (card.type === 4) return 'Events'
-  if (card.type === 5) return 'Upgrades'
   return 'Mainboard'
 }
 
