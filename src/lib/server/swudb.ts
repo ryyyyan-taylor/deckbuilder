@@ -203,21 +203,50 @@ export async function fetchSwuapiCardsByName(names: string[]): Promise<SwuapiCar
   return results
 }
 
-// SWUDB deck fetch — tries JSON export endpoint (swudb.com/deck/{id}.json)
+// SWUDB deck API response types (swudb.com/api/deck/{id})
+interface SwudbApiCardRef {
+  cardId: number
+  cardName: string
+  title: string | null
+  type: number   // 0=Leader, 1=Base, 2=Unit, 4=Event, 5=Upgrade
+  arena: number | null  // 0=Ground, 1=Space, null=N/A
+}
+
+interface SwudbApiDeckItem {
+  count: number
+  sideboardCount: number
+  card: SwudbApiCardRef
+}
+
+interface SwudbApiResponse {
+  deckId: string
+  deckName: string
+  deckFormat: number
+  leader: SwudbApiCardRef | null
+  secondLeader: SwudbApiCardRef | null
+  base: SwudbApiCardRef | null
+  shuffledDeck: SwudbApiDeckItem[]
+}
+
+export interface SwudbDeckCard {
+  name: string          // full card name (cardName + title)
+  quantity: number      // mainboard count
+  sideboardQuantity: number
+  type: number          // SWUDB card type int
+  arena: number | null  // SWUDB arena int
+}
+
 export interface SwudbDeckExport {
   name: string
-  description?: string
-  format?: string
-  cards: Array<{
-    uuid: string
-    name: string
-    quantity: number
-  }>
+  cards: SwudbDeckCard[]
+}
+
+function fullCardName(cardName: string, title: string | null): string {
+  return title ? `${cardName}, ${title}` : cardName
 }
 
 export async function fetchSwudbDeck(deckId: string): Promise<SwudbDeckExport | null> {
-  // Try the JSON export endpoint: https://swudb.com/deck/{deckId}.json
-  const url = `https://swudb.com/deck/${deckId}.json`
+  const url = `https://swudb.com/api/deck/${deckId}`
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), FETCH_TIMEOUT)
 
@@ -231,7 +260,33 @@ export async function fetchSwudbDeck(deckId: string): Promise<SwudbDeckExport | 
       console.warn(`[SWUDB] deck fetch failed for ${deckId}: ${res.status}`)
       return null
     }
-    return await res.json() as SwudbDeckExport
+
+    const data = await res.json() as SwudbApiResponse
+    const cards: SwudbDeckCard[] = []
+
+    if (data.leader) {
+      cards.push({ name: fullCardName(data.leader.cardName, data.leader.title), quantity: 1, sideboardQuantity: 0, type: 0, arena: data.leader.arena ?? null })
+    }
+    if (data.secondLeader) {
+      cards.push({ name: fullCardName(data.secondLeader.cardName, data.secondLeader.title), quantity: 1, sideboardQuantity: 0, type: 0, arena: data.secondLeader.arena ?? null })
+    }
+    if (data.base) {
+      cards.push({ name: fullCardName(data.base.cardName, data.base.title), quantity: 1, sideboardQuantity: 0, type: 1, arena: null })
+    }
+
+    for (const item of data.shuffledDeck ?? []) {
+      if (item.count > 0 || item.sideboardCount > 0) {
+        cards.push({
+          name: fullCardName(item.card.cardName, item.card.title),
+          quantity: item.count,
+          sideboardQuantity: item.sideboardCount,
+          type: item.card.type,
+          arena: item.card.arena ?? null,
+        })
+      }
+    }
+
+    return { name: data.deckName || 'Untitled Deck', cards }
   } catch (err) {
     console.warn(`[SWUDB] deck fetch error for ${deckId}:`, err instanceof Error ? err.message : 'unknown')
     return null

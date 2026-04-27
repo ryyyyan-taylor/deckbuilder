@@ -4,15 +4,17 @@ import { validateSwudbUrl } from "../../src/lib/validation.js";
 import { env } from "../../src/lib/server/env.js";
 import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../../src/lib/server/rateLimit.js";
 import { setCorsHeaders, verifyOrigin } from "../../src/lib/server/cors.js";
-import { fetchSwudbDeck, fetchSwuapiCardById, searchSwuapiCards, swudbToRow } from "../../src/lib/server/swudb.js";
+import { fetchSwudbDeck, searchSwuapiCards, swudbToRow, type SwudbDeckCard } from "../../src/lib/server/swudb.js";
 
 const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_ROLE_KEY);
 
-interface DeckCard {
-  uuid: string;
-  name: string;
-  quantity: number;
-  section?: string;
+// Map SWUDB numeric type+arena to our section name
+function cardSection(card: SwudbDeckCard): string {
+  if (card.type === 0 || card.type === 1) return 'Leader/Base'
+  if (card.type === 2) return card.arena === 1 ? 'Space Units' : 'Ground Units'
+  if (card.type === 4) return 'Events'
+  if (card.type === 5) return 'Upgrades'
+  return 'Mainboard'
 }
 
 export default async function handler(req: VercelRequest, res: VercelResponse) {
@@ -22,7 +24,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(405).json({ error: "Method not allowed" });
   }
 
-  // Verify origin for this expensive endpoint
   try {
     verifyOrigin(req.headers.origin, undefined, req.headers.host);
   } catch (err) {
@@ -33,7 +34,6 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     return res.status(403).json({ error: "Forbidden" });
   }
 
-  // Rate limiting
   const clientIp = req.headers["x-forwarded-for"] ?? req.socket?.remoteAddress ?? "unknown";
   const rateLimitKey = `swudb-import:${clientIp}`;
   if (!checkRateLimit(rateLimitKey, RATE_LIMITS.IMPORT_SWUDB.limit, RATE_LIMITS.IMPORT_SWUDB.window)) {
@@ -41,160 +41,106 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
     res.setHeader("X-RateLimit-Reset", getRateLimitReset(rateLimitKey));
     return res.status(429).json({ error: "Too many requests. Please try again later." });
   }
-
-  const remaining = getRateLimitRemaining(rateLimitKey, RATE_LIMITS.IMPORT_SWUDB.limit);
-  res.setHeader("X-RateLimit-Remaining", remaining);
+  res.setHeader("X-RateLimit-Remaining", getRateLimitRemaining(rateLimitKey, RATE_LIMITS.IMPORT_SWUDB.limit));
 
   try {
     const { url } = req.body ?? {};
-
-    // Input validation
     const deckId = validateSwudbUrl(url);
-
     const startTime = Date.now();
 
-    // Fetch deck from SWUDB
     const swudbDeck = await fetchSwudbDeck(deckId);
     if (!swudbDeck) {
-      console.error("[API] swudb import failed", {
-        deckId,
-        duration: Date.now() - startTime,
-      });
-      return res.status(404).json({ error: `Failed to fetch deck from SWUDB. Check the deck URL and try again.` });
+      console.error("[API] swudb fetch returned null", { deckId, duration: Date.now() - startTime });
+      return res.status(404).json({ error: "Failed to fetch deck from SWUDB. Check the deck URL and try again." });
     }
 
-    // Collect all cards from the deck
-    const allCards: DeckCard[] = swudbDeck.cards ?? [];
-
-    if (allCards.length === 0) {
-      return res.status(200).json({
-        name: swudbDeck.name || "Untitled Deck",
-        cards: [],
-        sections: []
-      });
+    if (swudbDeck.cards.length === 0) {
+      return res.status(200).json({ name: swudbDeck.name, cards: [], sections: [] });
     }
 
-    const cardUuids = [...new Set(allCards.map((c) => c.uuid))];
+    // De-duplicate names (leader might appear in both leader slot and shuffledDeck)
+    const uniqueNames = [...new Set(swudbDeck.cards.map((c) => c.name))];
 
-    // Check which cards already exist in our DB
-    const { data: existingCards, error: existError } = await supabase
-      .from("cards")
-      .select("id, scryfall_id, game, swu_type, arena")
-      .in("scryfall_id", cardUuids)
-      .eq("game", "swu");
-
-    if (existError) {
-      console.error("[API] card lookup failed", { deckId, error: existError.message });
-      return res.status(500).json({ error: "Failed to look up cards" });
-    }
-
-    const existingMap = new Map(
-      (existingCards ?? []).map((c: Record<string, unknown>) => [c.scryfall_id, c])
-    );
-
-    // Fetch from SWUAPI if card is missing
-    const needsFetchUuids = cardUuids.filter((uuid) => !existingMap.has(uuid));
-
-    if (needsFetchUuids.length > 0) {
-      for (const uuid of needsFetchUuids) {
-        try {
-          const swuCard = await fetchSwuapiCardById(uuid);
-          if (swuCard) {
-            const row = swudbToRow(swuCard);
-            await supabase.from("cards").upsert(row, { onConflict: "scryfall_id,game" });
-            existingMap.set(uuid, {
-              scryfall_id: uuid,
-              swu_type: swuCard.type,
-              arena: swuCard.arena ?? null
-            });
-          }
-        } catch (err) {
-          console.warn(`[API] failed to fetch card ${uuid}:`, err instanceof Error ? err.message : "unknown");
-        }
-      }
-    }
-
-    // Fetch final card data for internal IDs and section mapping
+    // 1. Batch lookup by name in our DB
     const { data: dbCards, error: dbError } = await supabase
       .from("cards")
-      .select("id, scryfall_id, swu_type, arena")
-      .in("scryfall_id", cardUuids)
+      .select("id, name, swu_type, arena")
+      .in("name", uniqueNames)
       .eq("game", "swu");
 
-    if (dbError || !dbCards) {
-      console.error("[API] final card lookup failed", { deckId, error: dbError?.message });
+    if (dbError) {
+      console.error("[API] card lookup failed", { deckId, error: dbError.message });
       return res.status(500).json({ error: "Failed to look up cards" });
     }
 
-    const cardDataMap = new Map(dbCards.map((c: Record<string, unknown>) => [c.scryfall_id, c]));
+    const nameToId = new Map<string, number>(
+      (dbCards ?? []).map((c: Record<string, unknown>) => [c.name as string, c.id as number])
+    );
 
-    // For any cards still missing (couldn't fetch), try name fallback
-    const stillMissing = allCards.filter((c) => !cardDataMap.has(c.uuid));
-    if (stillMissing.length > 0) {
-      const missingNames = [...new Set(stillMissing.map((c) => c.name))];
+    // 2. For names not in DB, search SWUAPI and insert
+    const missingNames = uniqueNames.filter((n) => !nameToId.has(n));
+    if (missingNames.length > 0) {
       for (const name of missingNames) {
         try {
-          const cards = await searchSwuapiCards(name, 1);
-          if (cards.length > 0) {
-            const swuCard = cards[0];
-            const row = swudbToRow(swuCard);
-            await supabase.from("cards").upsert(row, { onConflict: "scryfall_id,game" });
-            cardDataMap.set(swuCard.uuid, {
-              scryfall_id: swuCard.uuid,
-              swu_type: swuCard.type,
-              arena: swuCard.arena ?? null,
-            });
+          const results = await searchSwuapiCards(name, 5);
+          // Find best match: exact name (full name = name + subtitle or just name)
+          const match = results.find((c) => {
+            const fullName = c.subtitle ? `${c.name}, ${c.subtitle}` : c.name;
+            return fullName.toLowerCase() === name.toLowerCase();
+          }) ?? results[0];
+
+          if (match) {
+            const row = swudbToRow(match);
+            const { data: upserted } = await supabase
+              .from("cards")
+              .upsert(row, { onConflict: "scryfall_id,game" })
+              .select("id, name")
+              .single();
+            if (upserted) {
+              nameToId.set(upserted.name as string, upserted.id as number);
+              // Also map the original lookup name in case there's a casing difference
+              if (!nameToId.has(name)) {
+                nameToId.set(name, upserted.id as number);
+              }
+            }
           }
         } catch (err) {
-          console.warn(`[API] failed to lookup card ${name}:`, err instanceof Error ? err.message : "unknown");
+          console.warn(`[API] failed to fetch card "${name}":`, err instanceof Error ? err.message : "unknown");
         }
       }
     }
 
-    // Map cards to sections
-    const cardsBySection: Record<string, DeckCard[]> = {};
+    // 3. Build result rows
+    const result: { card_id: number; section: string; quantity: number }[] = [];
 
-    for (const card of allCards) {
-      const cardData = cardDataMap.get(card.uuid);
-      if (!cardData) {
-        console.warn(`[API] card not found after resolution: ${card.name}`);
+    for (const card of swudbDeck.cards) {
+      const cardId = nameToId.get(card.name);
+      if (!cardId) {
+        console.warn(`[API] card not resolved: "${card.name}"`);
         continue;
       }
-
-      let section = "Sideboard"; // default
-
-      const swuType = cardData.swu_type;
-      if (swuType === "Leader" || swuType === "Base") {
-        section = "Leader/Base";
-      } else {
-        section = "Mainboard";
+      const section = cardSection(card);
+      if (card.quantity > 0) {
+        result.push({ card_id: cardId, section, quantity: card.quantity });
       }
-
-      if (!cardsBySection[section]) {
-        cardsBySection[section] = [];
+      if (card.sideboardQuantity > 0) {
+        result.push({ card_id: cardId, section: "Sideboard", quantity: card.sideboardQuantity });
       }
-      cardsBySection[section].push({ ...card, section });
     }
 
-    // Build sections array
-    const sections = Object.keys(cardsBySection).sort();
+    const usedSections = [...new Set(result.map((c) => c.section))];
 
     console.info("[API] swudb import success", {
       deckId,
-      cardCount: allCards.length,
-      sections: sections.length,
+      cardCount: result.length,
+      sections: usedSections.length,
       duration: Date.now() - startTime,
     });
 
     return res.status(200).json({
-      name: swudbDeck.name || "Untitled Deck",
-      cards: allCards.map((c) => ({
-        ...c,
-        section: cardsBySection[Object.keys(cardsBySection).find((s) =>
-          cardsBySection[s].some((sc) => sc.uuid === c.uuid)
-        ) || "Sideboard"]?.[0]?.section || "Sideboard",
-      })),
-      sections,
+      name: swudbDeck.name,
+      cards: result,
+      sections: usedSections,
       game: "swu",
     });
   } catch (err) {
