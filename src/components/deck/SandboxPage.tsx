@@ -89,6 +89,7 @@ export function SandboxPage() {
   const [versionsLoading, setVersionsLoading] = useState(false)
   const [versionSearch, setVersionSearch] = useState('')
   const [showGuide, setShowGuide] = useState(false)
+  const [karabastCopied, setKarabastCopied] = useState(false)
   const [guideConflict, setGuideConflict] = useState<{
     message: string
     onOverride: () => void
@@ -107,6 +108,12 @@ export function SandboxPage() {
   useEffect(() => {
     document.title = `${deck.name} — Sandbox`
   }, [deck.name])
+
+  // Pre-warm the search serverless function so the first real search isn't delayed by a cold start
+  useEffect(() => {
+    void fetch(`/api/cards/search?q=a&game=${game}`).catch(() => {/* ignore */})
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [])
 
   const sections = deck.sections ?? ['Mainboard', STATS_SECTION, TEST_SECTION]
   const cardSections = sections.filter((s) => s !== STATS_SECTION && s !== TEST_SECTION)
@@ -273,10 +280,41 @@ export function SandboxPage() {
       addToast(`Imported ${cards.length} cards`)
       setShowImportModal(false)
       setImportUrl('')
+      setBulkEditMode(false)
+      setBulkEditErrors([])
     } catch {
       setImportError('Failed to import deck')
     }
     setImportLoading(false)
+  }
+
+  const handleCopyKarabastJson = () => {
+    const toId = (card: Card | undefined) => {
+      if (!card?.set_code || !card?.card_number) return null
+      return `${card.set_code}_${String(card.card_number).padStart(3, '0')}`
+    }
+    const leader = deckCards.find((dc) => dc.section === 'Leader/Base' && dc.card?.swu_type === 'Leader')
+    const base = deckCards.find((dc) => dc.section === 'Leader/Base' && dc.card?.swu_type === 'Base')
+    const mainCards = deckCards.filter((dc) => dc.section !== 'Leader/Base' && dc.section !== 'Sideboard' && dc.section !== 'Stats' && dc.section !== 'Test')
+    const sideboardCards = deckCards.filter((dc) => dc.section === 'Sideboard')
+    const missingCardNumber = [leader, base, ...mainCards, ...sideboardCards]
+      .filter(Boolean)
+      .some((dc) => !dc!.card?.card_number)
+    if (missingCardNumber) {
+      addToast('Some cards are missing card numbers — re-seed SWU cards to fix')
+      return
+    }
+    const json = JSON.stringify({
+      metadata: { name: deck?.name ?? 'Sandbox' },
+      ...(leader ? { leader: { id: toId(leader.card), count: 1 } } : {}),
+      ...(base ? { base: { id: toId(base.card), count: 1 } } : {}),
+      deck: mainCards.map((dc) => ({ id: toId(dc.card), count: dc.quantity })),
+      ...(sideboardCards.length > 0 ? { sideboard: sideboardCards.map((dc) => ({ id: toId(dc.card), count: dc.quantity })) } : {}),
+    }, null, 2)
+    navigator.clipboard.writeText(json).then(() => {
+      setKarabastCopied(true)
+      setTimeout(() => setKarabastCopied(false), 2000)
+    })
   }
 
   const handleReset = () => {
@@ -622,6 +660,14 @@ export function SandboxPage() {
             >
               {bulkEditMode ? 'Exit Bulk Edit' : 'Bulk Edit'}
             </button>
+            {deck?.game === 'swu' && (
+              <button
+                onClick={handleCopyKarabastJson}
+                className="px-3 py-1.5 bg-gray-700 hover:bg-gray-600 rounded text-sm"
+              >
+                {karabastCopied ? 'Copied!' : 'Karabast JSON'}
+              </button>
+            )}
             <button
               onClick={handleReset}
               className="px-3 py-1.5 bg-red-800 hover:bg-red-700 rounded text-sm"

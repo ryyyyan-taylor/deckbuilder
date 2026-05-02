@@ -148,6 +148,14 @@ export function EditDeckPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id])
 
+  // Pre-warm the search serverless function so the first real search isn't delayed by a cold start
+  useEffect(() => {
+    if (!deck?.game) return
+    void fetch(`/api/cards/search?q=a&game=${deck.game}`).catch(() => {/* ignore */})
+  // Only fire once when game is first known
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [deck?.game])
+
   // Auto-set display card when none is chosen yet
   useEffect(() => {
     if (!deck || !id) return
@@ -378,6 +386,8 @@ export function EditDeckPage() {
       addToast(`Imported ${cards.length} cards`)
       setShowImportModal(false)
       setImportUrl('')
+      setBulkEditMode(false)
+      setBulkEditErrors([])
     } catch {
       setImportError('Failed to import deck')
     }
