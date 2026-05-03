@@ -84,15 +84,16 @@ if (typeof setInterval !== 'undefined') {
 
 /**
  * Standard rate limits for different endpoint types
+ * Windows are 12 minutes to protect against abuse while allowing normal usage
  */
 export const RATE_LIMITS = {
   // Expensive external API calls
-  IMPORT_MOXFIELD: { limit: 20, window: 60 * 1000 }, // 20 per minute
-  IMPORT_SWUDB: { limit: 20, window: 60 * 1000 }, // 20 per minute
-  SUGGESTIONS_EDHREC: { limit: 30, window: 60 * 1000 }, // 30 per minute
-  RESULTS_TOURNAMENT: { limit: 30, window: 60 * 1000 }, // 30 per minute
+  IMPORT_MOXFIELD: { limit: 20, window: 12 * 60 * 1000 }, // 20 per 12 minutes (~1.6/min)
+  IMPORT_SWUDB: { limit: 20, window: 12 * 60 * 1000 }, // 20 per 12 minutes (~1.6/min)
+  SUGGESTIONS_EDHREC: { limit: 30, window: 12 * 60 * 1000 }, // 30 per 12 minutes (~2.5/min)
+  RESULTS_TOURNAMENT: { limit: 30, window: 12 * 60 * 1000 }, // 30 per 12 minutes (~2.5/min)
 
   // Card search (lighter weight)
-  CARDS_SEARCH: { limit: 60, window: 60 * 1000 }, // 60 per minute
-  CARDS_SINGLE: { limit: 100, window: 60 * 1000 }, // 100 per minute
+  CARDS_SEARCH: { limit: 60, window: 12 * 60 * 1000 }, // 60 per 12 minutes (~5/min)
+  CARDS_SINGLE: { limit: 100, window: 12 * 60 * 1000 }, // 100 per 12 minutes (~8/min)
 };
