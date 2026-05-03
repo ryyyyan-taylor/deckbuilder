@@ -2,7 +2,7 @@
 // Usage: npx tsx scripts/seed-swu.ts
 
 import { createClient } from '@supabase/supabase-js'
-import { fetchSwuapiBulk, swudbToRow } from '../api/_lib/swudb'
+import { fetchSwuapiBulk, swudbToRow } from '../src/lib/server/swudb.js'
 
 const supabase = createClient(
   process.env.VITE_SUPABASE_URL!,
