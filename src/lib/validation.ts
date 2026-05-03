@@ -181,3 +181,64 @@ export function validateSwudbUrl(url: unknown): string {
 
   return deckId;
 }
+
+/**
+ * Validate request body size (prevent DoS via oversized payloads)
+ * @param body - The request body (as string or Buffer)
+ * @param maxBytes - Maximum allowed size in bytes (default 10KB)
+ * @throws ValidationError if too large
+ */
+export function validatePayloadSize(
+  body: unknown,
+  maxBytes = 10 * 1024
+): void {
+  let sizeBytes = 0;
+
+  if (typeof body === 'string') {
+    sizeBytes = Buffer.byteLength(body, 'utf8');
+  } else if (Buffer.isBuffer(body)) {
+    sizeBytes = body.length;
+  } else if (body !== null && typeof body === 'object') {
+    sizeBytes = Buffer.byteLength(JSON.stringify(body), 'utf8');
+  }
+
+  if (sizeBytes > maxBytes) {
+    throw createValidationError(
+      `Payload exceeds maximum size of ${maxBytes} bytes (received ${sizeBytes} bytes)`
+    );
+  }
+}
+
+/**
+ * Validate POST request body structure (ensure required fields exist and are correct type)
+ * @param body - The request body object
+ * @param requiredFields - Object defining field names and expected types
+ * @throws ValidationError if required fields missing or wrong type
+ */
+export function validatePostBody(
+  body: unknown,
+  requiredFields: Record<string, 'string' | 'number' | 'boolean' | 'object'>
+): Record<string, unknown> {
+  if (!body || typeof body !== 'object') {
+    throw createValidationError('Request body must be a valid JSON object');
+  }
+
+  const bodyObj = body as Record<string, unknown>;
+
+  for (const [field, expectedType] of Object.entries(requiredFields)) {
+    const value = bodyObj[field];
+
+    if (value === undefined || value === null) {
+      throw createValidationError(`Missing required field: ${field}`);
+    }
+
+    const actualType = Array.isArray(value) ? 'array' : typeof value;
+    if (actualType !== expectedType && expectedType !== 'object') {
+      throw createValidationError(
+        `Field '${field}' must be of type ${expectedType}, got ${actualType}`
+      );
+    }
+  }
+
+  return bodyObj;
+}

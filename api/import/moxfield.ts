@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import { validateMoxfieldUrl } from "../../src/lib/validation.js";
+import { validateMoxfieldUrl, validatePayloadSize, validatePostBody } from "../../src/lib/validation.js";
 import { env } from "../../src/lib/server/env.js";
 import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../../src/lib/server/rateLimit.js";
 import { setCorsHeaders, verifyOrigin } from "../../src/lib/server/cors.js";
@@ -111,10 +111,10 @@ export default async function handler(req: VercelRequest, res: VercelResponse) {
   res.setHeader("X-RateLimit-Remaining", remaining);
 
   try {
-    const { url } = req.body ?? {};
-
-    // Input validation
-    const deckId = validateMoxfieldUrl(url);
+    // Validate payload size and structure
+    validatePayloadSize(req.body, 5 * 1024); // 5KB max for URL payload
+    const body = validatePostBody(req.body, { url: 'string' });
+    const deckId = validateMoxfieldUrl(body.url);
 
     const startTime = Date.now();
 
