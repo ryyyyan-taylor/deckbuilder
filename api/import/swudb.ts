@@ -1,6 +1,6 @@
 import type { VercelRequest, VercelResponse } from "@vercel/node";
 import { createClient } from "@supabase/supabase-js";
-import { validateSwudbUrl, validatePayloadSize, validatePostBody } from "../../src/lib/validation.js";
+import { validateSwudbUrl, validatePayloadSize, validatePostBody } from "../../src/lib/server/validation.js";
 import { env } from "../../src/lib/server/env.js";
 import { checkRateLimit, getRateLimitRemaining, getRateLimitReset, RATE_LIMITS } from "../../src/lib/server/rateLimit.js";
 import { setCorsHeaders, verifyOrigin } from "../../src/lib/server/cors.js";
