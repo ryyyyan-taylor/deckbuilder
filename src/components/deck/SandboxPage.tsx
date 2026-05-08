@@ -71,6 +71,7 @@ export function SandboxPage() {
   const [bulkEditText, setBulkEditText] = useState<Record<string, string>>({})
   const [bulkEditSaving, setBulkEditSaving] = useState(false)
   const [bulkEditErrors, setBulkEditErrors] = useState<string[]>([])
+  const [bulkEditProgress, setBulkEditProgress] = useState(0)
   const [importUrl, setImportUrl] = useState('')
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
@@ -339,12 +340,14 @@ export function SandboxPage() {
     }
     setBulkEditText(text)
     setBulkEditErrors([])
+    setBulkEditProgress(0)
     setBulkEditMode(true)
   }
 
   const handleBulkEditSave = async () => {
     setBulkEditSaving(true)
     setBulkEditErrors([])
+    setBulkEditProgress(0)
 
     const parsedSections = new Map<string, { name: string; quantity: number }[]>()
     const namesToLookup = new Set<string>()
@@ -380,7 +383,9 @@ export function SandboxPage() {
         if (!exists) namesToLookup.add(name)
       }
     }
+    setBulkEditProgress(10)
 
+    // Three-pass lookup: exact batch → ilike case fallback → DFC prefix front-face match
     const cardLookup = new Map<string, string>()
     const nameArray = [...namesToLookup]
     if (nameArray.length > 0) {
@@ -393,8 +398,10 @@ export function SandboxPage() {
         const key = (card.name as string).toLowerCase()
         if (!cardLookup.has(key)) cardLookup.set(key, card.id as string)
       }
-      // Fallback: ilike for any names the exact match missed
+      setBulkEditProgress(30)
+      // Pass 2: ilike for any names the exact match missed
       const stillMissing = nameArray.filter((n) => !cardLookup.has(n.toLowerCase()))
+      let ilikeDone = 0
       for (const name of stillMissing) {
         const { data: fuzzy } = await supabase
           .from('cards')
@@ -403,8 +410,22 @@ export function SandboxPage() {
           .order('released_at', { ascending: true, nullsFirst: false })
           .limit(1)
         if (fuzzy?.[0]) cardLookup.set(name.toLowerCase(), fuzzy[0].id as string)
+        ilikeDone++
+        setBulkEditProgress(30 + Math.round((ilikeDone / Math.max(stillMissing.length, 1)) * 45))
+      }
+      // Pass 3: DFC prefix — match front face of double-faced cards
+      const stillMissingDfc = stillMissing.filter((n) => !cardLookup.has(n.toLowerCase()))
+      for (const name of stillMissingDfc) {
+        const { data: prefix } = await supabase
+          .from('cards')
+          .select('id, name')
+          .ilike('name', `${name} //%`)
+          .order('released_at', { ascending: true, nullsFirst: false })
+          .limit(1)
+        if (prefix?.[0]) cardLookup.set(name.toLowerCase(), prefix[0].id as string)
       }
     }
+    setBulkEditProgress(85)
 
     const removes: string[] = []
     const updates: { deckCardId: string; quantity: number }[] = []
@@ -448,6 +469,7 @@ export function SandboxPage() {
     if (errors.length > 0) {
       setBulkEditErrors(errors)
       setBulkEditSaving(false)
+      setBulkEditProgress(0)
       return
     }
 
@@ -474,6 +496,7 @@ export function SandboxPage() {
           for (const deckCardId of removes) await removeDeckCard(deckCardId)
           for (const { deckCardId, quantity } of updates) await updateDeckCardQuantity(deckCardId, quantity)
           if (adds.length > 0) await bulkAddCards(SANDBOX_ID, adds)
+          setBulkEditProgress(100)
           setBulkEditMode(false)
           addToast('Bulk edit saved')
           setBulkEditSaving(false)
@@ -491,6 +514,7 @@ export function SandboxPage() {
     for (const { deckCardId, quantity } of updates) await updateDeckCardQuantity(deckCardId, quantity)
     if (adds.length > 0) await bulkAddCards(SANDBOX_ID, adds)
 
+    setBulkEditProgress(100)
     setBulkEditMode(false)
     addToast('Bulk edit saved')
     setBulkEditSaving(false)
@@ -766,16 +790,30 @@ export function SandboxPage() {
           </div>
         )}
 
-        {/* Card search */}
-        <div className="mb-6">
-          <CardSearch
-            onAdd={handleAddCard}
-            sections={cardSections}
-            activeSection={cardSections.includes('Mainboard') ? 'Mainboard' : cardSections[0]}
-            game={deck?.game ?? 'mtg'}
-            onHoverCard={setPreviewCard}
-          />
-        </div>
+        {/* Card search in normal mode; progress bar in bulk edit mode */}
+        {bulkEditMode ? (
+          <div className="mb-6">
+            <p className="text-xs text-gray-400 mb-2">
+              {bulkEditSaving ? 'Looking up cards…' : 'Paste card names below, then click Save'}
+            </p>
+            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-500 rounded-full transition-all duration-200"
+                style={{ width: `${bulkEditProgress}%` }}
+              />
+            </div>
+          </div>
+        ) : (
+          <div className="mb-6">
+            <CardSearch
+              onAdd={handleAddCard}
+              sections={cardSections}
+              activeSection={cardSections.includes('Mainboard') ? 'Mainboard' : cardSections[0]}
+              game={deck?.game ?? 'mtg'}
+              onHoverCard={setPreviewCard}
+            />
+          </div>
+        )}
 
         {/* Main content + preview panel */}
         <div className="flex gap-6">

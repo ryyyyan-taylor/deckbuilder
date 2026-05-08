@@ -65,6 +65,7 @@ export function EditDeckPage() {
   const [bulkEditText, setBulkEditText] = useState<Record<string, string>>({})
   const [bulkEditSaving, setBulkEditSaving] = useState(false)
   const [bulkEditErrors, setBulkEditErrors] = useState<string[]>([])
+  const [bulkEditProgress, setBulkEditProgress] = useState(0)
   const [importUrl, setImportUrl] = useState('')
   const [importLoading, setImportLoading] = useState(false)
   const [importError, setImportError] = useState<string | null>(null)
@@ -406,6 +407,7 @@ export function EditDeckPage() {
     }
     setBulkEditText(text)
     setBulkEditErrors([])
+    setBulkEditProgress(0)
     setBulkEditMode(true)
   }
 
@@ -413,6 +415,7 @@ export function EditDeckPage() {
     if (!id) return
     setBulkEditSaving(true)
     setBulkEditErrors([])
+    setBulkEditProgress(0)
 
     // Parse all section texts
     const parsedSections = new Map<string, { name: string; quantity: number }[]>()
@@ -448,10 +451,12 @@ export function EditDeckPage() {
         if (!exists) namesToLookup.add(name)
       }
     }
+    setBulkEditProgress(10)
 
-    // Look up new card names in the cards table.
-    // Two-pass: exact .in() first, then case-insensitive .ilike() fallback for
-    // any names not found — handles case differences and invisible characters.
+    // Look up new card names — three passes:
+    // 1. Exact .in() batch
+    // 2. Case-insensitive .ilike() for case differences
+    // 3. DFC prefix .ilike(name + ' //%') — lets users type only the front face name
     const cardLookup = new Map<string, string>() // name lower → card id
     const nameArray = [...namesToLookup]
     if (nameArray.length > 0) {
@@ -465,8 +470,10 @@ export function EditDeckPage() {
         const key = (card.name as string).toLowerCase()
         if (!cardLookup.has(key)) cardLookup.set(key, card.id as string)
       }
-      // Fallback: ilike for any names the exact match missed
+      setBulkEditProgress(30)
+      // Pass 2: ilike for any names the exact match missed
       const stillMissing = nameArray.filter((n) => !cardLookup.has(n.toLowerCase()))
+      let ilikeDone = 0
       for (const name of stillMissing) {
         const { data: fuzzy } = await supabase
           .from('cards')
@@ -475,8 +482,22 @@ export function EditDeckPage() {
           .order('released_at', { ascending: true, nullsFirst: false })
           .limit(1)
         if (fuzzy?.[0]) cardLookup.set(name.toLowerCase(), fuzzy[0].id as string)
+        ilikeDone++
+        setBulkEditProgress(30 + Math.round((ilikeDone / Math.max(stillMissing.length, 1)) * 45))
+      }
+      // Pass 3: DFC prefix — match front face of double-faced cards
+      const stillMissingDfc = stillMissing.filter((n) => !cardLookup.has(n.toLowerCase()))
+      for (const name of stillMissingDfc) {
+        const { data: prefix } = await supabase
+          .from('cards')
+          .select('id, name')
+          .ilike('name', `${name} //%`)
+          .order('released_at', { ascending: true, nullsFirst: false })
+          .limit(1)
+        if (prefix?.[0]) cardLookup.set(name.toLowerCase(), prefix[0].id as string)
       }
     }
+    setBulkEditProgress(85)
 
     // Build diff
     const removes: string[] = []
@@ -520,6 +541,7 @@ export function EditDeckPage() {
     if (errors.length > 0) {
       setBulkEditErrors(errors)
       setBulkEditSaving(false)
+      setBulkEditProgress(0)
       return
     }
 
@@ -547,6 +569,7 @@ export function EditDeckPage() {
           for (const { deckCardId, quantity } of updates) await updateDeckCardQuantity(deckCardId, quantity)
           if (adds.length > 0) await bulkAddCards(id, adds)
           await loadDeckCards()
+          setBulkEditProgress(100)
           setBulkEditMode(false)
           addToast('Bulk edit saved')
           setBulkEditSaving(false)
@@ -565,6 +588,7 @@ export function EditDeckPage() {
     if (adds.length > 0) await bulkAddCards(id, adds)
 
     await loadDeckCards()
+    setBulkEditProgress(100)
     setBulkEditMode(false)
     addToast('Bulk edit saved')
     setBulkEditSaving(false)
@@ -937,25 +961,39 @@ export function EditDeckPage() {
           </div>
         )}
 
-        {/* Card search — collapsible on mobile */}
-        <div className="mb-6">
-          <button
-            onClick={() => setSearchOpen((p) => !p)}
-            className="md:hidden w-full flex items-center justify-between px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-gray-300 hover:border-gray-500 mb-2"
-          >
-            <span>🔍 Search cards</span>
-            <span className="text-gray-500 text-xs">{searchOpen ? '▲' : '▼'}</span>
-          </button>
-          <div className={`${searchOpen ? 'block' : 'hidden'} md:block`}>
-            <CardSearch
-              onAdd={handleAddCard}
-              sections={cardSections}
-              activeSection={cardSections.includes('Mainboard') ? 'Mainboard' : cardSections[0]}
-              game={deck?.game ?? 'mtg'}
-              onHoverCard={setPreviewCard}
-            />
+        {/* Card search in normal mode; progress bar in bulk edit mode */}
+        {bulkEditMode ? (
+          <div className="mb-6">
+            <p className="text-xs text-gray-400 mb-2">
+              {bulkEditSaving ? 'Looking up cards…' : 'Paste card names below, then click Save'}
+            </p>
+            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+              <div
+                className="h-full bg-blue-500 rounded-full transition-all duration-200"
+                style={{ width: `${bulkEditProgress}%` }}
+              />
+            </div>
           </div>
-        </div>
+        ) : (
+          <div className="mb-6">
+            <button
+              onClick={() => setSearchOpen((p) => !p)}
+              className="md:hidden w-full flex items-center justify-between px-3 py-2 bg-gray-800 border border-gray-700 rounded text-sm text-gray-300 hover:border-gray-500 mb-2"
+            >
+              <span>🔍 Search cards</span>
+              <span className="text-gray-500 text-xs">{searchOpen ? '▲' : '▼'}</span>
+            </button>
+            <div className={`${searchOpen ? 'block' : 'hidden'} md:block`}>
+              <CardSearch
+                onAdd={handleAddCard}
+                sections={cardSections}
+                activeSection={cardSections.includes('Mainboard') ? 'Mainboard' : cardSections[0]}
+                game={deck?.game ?? 'mtg'}
+                onHoverCard={setPreviewCard}
+              />
+            </div>
+          </div>
+        )}
 
         {/* Main content + preview panel */}
         <div className="flex gap-6">
